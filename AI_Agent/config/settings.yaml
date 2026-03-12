@@ -1,0 +1,177 @@
+# =============================================================================
+# Multi-Agent System Configuration
+# Wind Pressure Cp Time Series Modeling
+# =============================================================================
+
+project:
+  name: "Wind Pressure Cp Multi-Agent System"
+  version: "1.0.0"
+  language: "mixed"  # code: english, interface: spanish
+
+# --- Data Paths (relative to project root) ---
+data:
+  # BDH dataset: Data_All_The_BDH/<alpha>/<building_ratio>/*.mat
+  bdh_data_dir: "../Data/Data_All_The_BDH"
+  # Default alpha profile and building ratio for training
+  default_alpha: "Alpha1_4"
+  default_building_ratio: "1_1_3"
+  # Available alpha profiles
+  alpha_profiles: ["Alpha1_4", "Alpha1_6"]
+  # Available building ratios
+  building_ratios:
+    - "1_1_2"  # B=0.1, D=0.1, H=0.2, 200 taps, 11 angles (0-50)
+    - "1_1_3"  # B=0.1, D=0.1, H=0.3, 300 taps, 11 angles (0-50)
+    - "1_1_4"  # B=0.1, D=0.1, H=0.4, 400 taps, 11 angles (0-50)
+    - "1_1_5"  # B=0.1, D=0.1, H=0.5, 500 taps, 11 angles (0-50)
+    - "2_1_2"  # B=0.2, D=0.1, H=0.2, 240 taps, 21 angles (0-100)
+    - "2_1_3"  # B=0.2, D=0.1, H=0.3, 360 taps, 21 angles (0-100)
+    - "2_1_4"  # B=0.2, D=0.1, H=0.4, 450 taps, 21 angles (0-100)
+    - "2_1_5"  # B=0.2, D=0.1, H=0.5, 510 taps, 21 angles (0-100)
+    - "3_1_2"  # B=0.3, D=0.1, H=0.2, 200 taps, 21 angles (0-100)
+    - "3_1_3"  # B=0.3, D=0.1, H=0.3, 320 taps, 21 angles (0-100)
+    - "3_1_4"  # B=0.3, D=0.1, H=0.4, 440 taps, 21 angles (0-100)
+    - "3_1_5"  # B=0.3, D=0.1, H=0.5, 480 taps, 21 angles (0-100)
+  sample_frequency: 1000  # Hz
+  num_timesteps: 32768
+
+# --- Researcher Agent Configuration ---
+researcher:
+  # Search parameters
+  max_papers_per_query: 50
+  max_total_papers: 200
+  min_relevance_score: 5  # 0-10 scale
+  top_papers_for_deep_analysis: 30
+  min_papers_threshold: 15  # Re-search if fewer found
+  high_priority_threshold: 3  # Mark model as high-priority if in >N papers
+  
+  # Search sources
+  sources:
+    semantic_scholar:
+      enabled: true
+      rate_limit_per_5min: 100
+    arxiv:
+      enabled: true
+      categories: ["cs.LG", "cs.AI", "physics.flu-dyn", "stat.ML"]
+    google_scholar:
+      enabled: true  # Requires SERPAPI_KEY
+      max_searches_per_run: 50
+  
+  # Search queries (base queries - agent will generate more)
+  base_queries:
+    - '"wind pressure coefficient" AND ("deep learning" OR "machine learning")'
+    - '"Cp prediction" AND "building" AND "neural network"'
+    - '"time series forecasting" AND "pressure coefficient"'
+    - '"wind tunnel" AND "deep learning" AND "prediction"'
+    - '"temporal fusion transformer" AND "time series"'
+    - '"LSTM" AND "wind pressure"'
+    - '"transformer" AND "time series forecasting"'
+    - '"N-BEATS" OR "N-HiTS" AND "forecasting"'
+    - '"physics-informed neural network" AND "fluid"'
+    - '"TCN" OR "temporal convolutional" AND "time series"'
+    - '"DeepAR" OR "probabilistic forecasting"'
+    - '"WaveNet" AND "time series"'
+    - '"PatchTST" OR "iTransformer" AND "forecasting"'
+    - '"wind engineering" AND "machine learning" AND "coefficient"'
+    - '"aerodynamic coefficient" AND "neural network" AND "prediction"'
+  
+  # Output paths
+  output_dir: "./literature_results"
+  papers_file: "papers.json"
+  candidates_file: "model_candidates.json"
+  synthesis_file: "literature_synthesis.md"
+
+# --- Modeler Agent Configuration ---
+modeler:
+  # Training defaults
+  training:
+    default_epochs: 200
+    quick_run_epochs: 5
+    batch_size: 64
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    gradient_clip: 1.0
+    early_stopping_patience: 15
+    lr_scheduler_patience: 5
+    lr_scheduler_factor: 0.5
+    mixed_precision: true
+    num_workers: 4
+  
+  # Data split
+  split:
+    train_ratio: 0.70
+    val_ratio: 0.15
+    test_ratio: 0.15
+  
+  # Sequence parameters
+  sequence:
+    default_length: 100
+    lengths_to_test: [50, 100, 200, 500]
+  
+  # Evaluation
+  evaluation:
+    metrics: ["rmse", "mae", "r2", "mape", "directional_accuracy"]
+    forecast_horizons: [1, 10, 50, 100, 500]
+    cross_validation_folds: 5
+    baseline_results_file: "../model_results/model_comparison_results.csv"
+  
+  # Hyperparameter optimization
+  hpo:
+    enabled: true
+    n_trials: 50
+    pruner: "median"
+    sampler: "tpe"
+    timeout_per_trial: 600  # seconds
+  
+  # Models to always include (seed models)
+  seed_models:
+    - name: "TemporalFusionTransformer"
+      priority: 1
+      category: "transformer"
+    - name: "Informer"
+      priority: 2
+      category: "transformer"
+    - name: "NBEATS"
+      priority: 3
+      category: "probabilistic"
+    - name: "TemporalConvNet"
+      priority: 4
+      category: "convolutional"
+    - name: "DeepAR"
+      priority: 5
+      category: "probabilistic"
+    - name: "WaveNet"
+      priority: 6
+      category: "convolutional"
+    - name: "XGBoostTimeSeries"
+      priority: 7
+      category: "gradient_boosting"
+    - name: "PatchTST"
+      priority: 8
+      category: "transformer"
+  
+  # Output paths
+  saved_models_dir: "../Deeplearn/saved_models"
+  results_dir: "../model_results"
+  generated_code_dir: "./agents/modeler/generated_models"
+
+# --- Orchestrator Configuration ---
+orchestrator:
+  max_research_iterations: 3
+  max_modeling_iterations: 2
+  feedback_enabled: true
+  # If no model achieves R² > this in true forecasting, trigger feedback loop
+  min_forecast_r2_threshold: 0.0
+
+# --- MLflow Configuration ---
+mlflow:
+  experiment_name: "wind_pressure_cp_agents"
+  tracking_uri: "./mlruns"
+  log_artifacts: true
+  log_models: true
+
+# --- Logging ---
+logging:
+  level: "INFO"
+  file: "./logs/agent_run.log"
+  console_language: "es"  # Spanish console output
+  file_language: "en"     # English log files

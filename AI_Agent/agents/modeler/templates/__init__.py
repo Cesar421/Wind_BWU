@@ -1,0 +1,1 @@
+# Model templates package

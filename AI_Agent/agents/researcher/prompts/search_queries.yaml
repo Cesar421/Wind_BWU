@@ -1,0 +1,82 @@
+# =============================================================================
+# Predefined search queries organized by category
+# Used as seeds by the Researcher Agent. Claude generates additional queries.
+# =============================================================================
+
+objective: >
+  Find ML/DL models capable of predicting wind pressure coefficient (Cp) time 
+  series on building surfaces without wind tunnel experiments. Data: 300 pressure 
+  taps, ~32768 timesteps at 1000Hz, 11 wind angles (0-50°). Current models fail 
+  at true multi-step forecasting. Need architectures that can generate realistic 
+  Cp time series from building geometry and wind angle parameters.
+
+categories:
+  wind_pressure_specific:
+    - '"wind pressure coefficient" AND ("deep learning" OR "neural network")'
+    - '"Cp prediction" AND "building" AND ("machine learning" OR "ANN")'
+    - '"wind pressure" AND "time series" AND "prediction"'
+    - '"aerodynamic coefficient" AND "neural network"'
+    - '"wind tunnel" AND "deep learning" AND "pressure"'
+    - '"wind load" AND "machine learning" AND "building"'
+    - '"cladding pressure" AND "prediction" AND "neural"'
+
+  time_series_forecasting:
+    - '"time series forecasting" AND "transformer"'
+    - '"temporal fusion transformer" time series'
+    - 'Informer long sequence time series forecasting'
+    - '"N-BEATS" OR "N-HiTS" time series'
+    - '"DeepAR" probabilistic forecasting'
+    - 'PatchTST time series forecasting'
+    - 'iTransformer time series 2024'
+    - '"TimesNet" temporal 2D variation'
+    - 'Autoformer decomposition forecasting'
+    - 'FEDformer frequency enhanced'
+    - '"Crossformer" multivariate time series'
+
+  recurrent_models:
+    - '"LSTM" AND "wind" AND "prediction"'
+    - '"GRU" AND "time series" AND "engineering"'
+    - 'bidirectional LSTM time series forecasting turbulence'
+    - '"encoder decoder" LSTM multi-step forecasting'
+    - '"sequence to sequence" time series pressure'
+
+  convolutional_models:
+    - '"temporal convolutional network" OR "TCN" time series'
+    - '"WaveNet" time series forecasting'
+    - '"dilated convolution" time series prediction'
+    - '"CNN-LSTM" hybrid time series'
+    - '"1D convolution" time series forecasting wind'
+
+  probabilistic_generative:
+    - '"variational autoencoder" time series generation'
+    - '"GAN" time series generation synthetic'
+    - '"diffusion model" time series forecasting'
+    - 'normalizing flows time series'
+    - '"conditional generation" time series'
+
+  physics_informed:
+    - '"physics-informed neural network" AND "fluid"'
+    - '"PINN" AND ("pressure" OR "aerodynamic")'
+    - '"physics-guided" machine learning wind'
+    - '"neural operator" fluid dynamics'
+    - 'Fourier neural operator turbulence'
+
+  gradient_boosting:
+    - '"XGBoost" OR "LightGBM" time series forecasting'
+    - '"gradient boosting" lag features time series'
+    - '"ensemble" machine learning wind pressure'
+
+  foundation_models:
+    - '"foundation model" time series 2024'
+    - 'TimesFM time series foundation'
+    - '"Chronos" time series pretrained'
+    - '"Lag-Llama" time series'
+    - 'pretrained transformer time series zero-shot'
+
+  wind_engineering_ml:
+    - '"computational wind engineering" machine learning'
+    - '"low-rise building" wind pressure prediction neural'
+    - '"TPU aerodynamic database" OR "Tokyo Polytechnic" wind pressure'
+    - '"bluff body" aerodynamics neural network'
+    - '"mean pressure coefficient" prediction building geometry'
+    - '"peak pressure" prediction machine learning'
