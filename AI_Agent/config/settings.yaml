@@ -12,9 +12,19 @@ project:
 data:
   # BDH dataset: Data_All_The_BDH/<alpha>/<building_ratio>/*.mat
   bdh_data_dir: "../Data/Data_All_The_BDH"
-  # Default alpha profile and building ratio for training
+  # Postprocessed face-averaged data (preferred source)
+  postprocess_dir: "../Data/Data_All_The_BDH_PostProcess"
+  # Use postprocessed data by default (multivariate: 4 faces)
+  use_postprocessed: true
+  # Faces to use as input features (windward, leeward, sideleft, sideright)
+  faces: ["windward", "leeward", "sideleft", "sideright"]
+  # Default alpha profile and building ratio for single-building training
   default_alpha: "Alpha1_4"
   default_building_ratio: "1_1_3"
+  # Use ALL buildings across all alphas for training
+  use_all_buildings: true
+  # Step/stride for sliding window when loading all buildings (reduces memory)
+  sequence_step: 10
   # Available alpha profiles
   alpha_profiles: ["Alpha1_4", "Alpha1_6"]
   # Available building ratios

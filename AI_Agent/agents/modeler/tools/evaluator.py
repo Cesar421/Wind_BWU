@@ -135,7 +135,15 @@ class ModelEvaluator:
 
                 # Append prediction to running sequence
                 if running.ndim == 2:
-                    running = np.vstack([running, [[pred_val]]])
+                    # Multivariate: pred_val may be scalar or 1D
+                    new_row = np.atleast_1d(pred_val).reshape(1, -1)
+                    # Pad or trim to match running features if needed
+                    if new_row.shape[1] != running.shape[1]:
+                        padded = np.zeros((1, running.shape[1]))
+                        padded[0, :min(new_row.shape[1], running.shape[1])] = \
+                            new_row[0, :min(new_row.shape[1], running.shape[1])]
+                        new_row = padded
+                    running = np.vstack([running, new_row])
                 else:
                     running = np.append(running, pred_val)
 
@@ -146,17 +154,21 @@ class ModelEvaluator:
             if h > max_horizon:
                 continue
             y_pred_h = predictions[:h]
-            y_true_h = y_true_future[:h].squeeze()
+            y_true_h = y_true_future[:h]
 
-            if len(y_pred_h) != len(y_true_h):
+            # Flatten for metrics if multivariate
+            y_pred_flat = y_pred_h.reshape(-1)
+            y_true_flat = y_true_h.reshape(-1)
+
+            if len(y_pred_flat) != len(y_true_flat):
                 continue
 
             results[f"horizon_{h}"] = {
-                "rmse": rmse(y_true_h, y_pred_h),
-                "mae": float(mean_absolute_error(y_true_h, y_pred_h)),
-                "r2": float(r2_score(y_true_h, y_pred_h)),
-                "mape": mape(y_true_h, y_pred_h),
-                "directional_accuracy": directional_accuracy(y_true_h, y_pred_h),
+                "rmse": rmse(y_true_flat, y_pred_flat),
+                "mae": float(mean_absolute_error(y_true_flat, y_pred_flat)),
+                "r2": float(r2_score(y_true_flat, y_pred_flat)),
+                "mape": mape(y_true_flat, y_pred_flat),
+                "directional_accuracy": directional_accuracy(y_true_flat, y_pred_flat),
             }
 
         return results

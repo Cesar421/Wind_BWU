@@ -51,8 +51,8 @@ class ModelerState(TypedDict):
 # ---------------------------------------------------------------------------
 
 def load_data(state: ModelerState) -> ModelerState:
-    """Load and prepare wind pressure data from BDH .mat files for training."""
-    logger.info("Loading wind pressure data from BDH dataset...")
+    """Load and prepare wind pressure data from postprocessed .npy files for training."""
+    logger.info("Loading wind pressure data from postprocessed dataset...")
 
     try:
         # Add AI_Agent root to path
@@ -60,37 +60,83 @@ def load_data(state: ModelerState) -> ModelerState:
         sys.path.insert(0, str(agent_root))
 
         from config import get_config
-        from data_adapter import WindDataAdapter
+        from data_adapter import PostProcessDataAdapter, WindDataAdapter
 
         cfg = get_config()
         data_cfg = cfg.settings["data"]
-        alpha = data_cfg.get("default_alpha", "Alpha1_4")
-        ratio = data_cfg.get("default_building_ratio", "1_1_3")
         seq_length = cfg.settings["modeler"]["sequence"]["default_length"]
+        use_postprocessed = data_cfg.get("use_postprocessed", True)
 
-        adapter = WindDataAdapter(alpha=alpha, building_ratio=ratio)
-        logger.info(f"  Using alpha={alpha}, building_ratio={ratio}")
+        if use_postprocessed:
+            # --- Postprocessed multivariate data (4 faces) ---
+            faces = data_cfg.get("faces", ["windward", "leeward", "sideleft", "sideright"])
+            use_all = data_cfg.get("use_all_buildings", True)
+            adapter = PostProcessDataAdapter()
 
-        # Get ready-to-use data (angle=0, mean across all taps)
-        data = adapter.get_training_data(
-            angle=0, seq_length=seq_length, normalize=True
-        )
+            if use_all:
+                logger.info("  Loading ALL buildings (multivariate, all alphas)...")
+                step = data_cfg.get("sequence_step", 10)
+                data = adapter.get_multi_building_data(
+                    seq_length=seq_length, step=step, faces=faces, normalize=True,
+                )
+                logger.info(
+                    f"  Loaded {data['buildings_loaded']} buildings: "
+                    f"train={data['X_train'].shape}, features={data['num_features']}"
+                )
+            else:
+                alpha = data_cfg.get("default_alpha", "Alpha1_4")
+                ratio = data_cfg.get("default_building_ratio", "1_1_3")
+                adapter = PostProcessDataAdapter(alpha=alpha, building_ratio=ratio)
+                logger.info(f"  Using alpha={alpha}, building_ratio={ratio}, faces={faces}")
+                data = adapter.get_multi_angle_data(
+                    seq_length=seq_length, faces=faces, normalize=True,
+                    alpha=alpha, ratio=ratio,
+                )
 
-        state["X_train"] = data["X_train"]
-        state["y_train"] = data["y_train"]
-        state["X_val"] = data["X_val"]
-        state["y_val"] = data["y_val"]
-        state["X_test"] = data["X_test"]
-        state["y_test"] = data["y_test"]
-        state["test_seq_for_forecast"] = data["test_seed"]
-        state["y_true_future"] = data["y_future"]
+            state["X_train"] = data["X_train"]
+            state["y_train"] = data["y_train"]
+            state["X_val"] = data["X_val"]
+            state["y_val"] = data["y_val"]
+            state["X_test"] = data["X_test"]
+            state["y_test"] = data["y_test"]
 
-        logger.info(f"  Train: {data['X_train'].shape}, Val: {data['X_val'].shape}, Test: {data['X_test'].shape}")
-        logger.info(f"  Forecast seed: {data['test_seed'].shape}, Future: {data['y_future'].shape}")
+            # For forecasting evaluation, load one building/angle test seed
+            alpha = data_cfg.get("default_alpha", "Alpha1_4")
+            ratio = data_cfg.get("default_building_ratio", "1_1_3")
+            single_adapter = PostProcessDataAdapter(alpha=alpha, building_ratio=ratio)
+            single_data = single_adapter.get_training_data(
+                angle=0, seq_length=seq_length, faces=faces, normalize=True,
+            )
+            state["test_seq_for_forecast"] = single_data["test_seed"]
+            state["y_true_future"] = single_data["y_future"]
+
+        else:
+            # --- Legacy: raw .mat files (univariate) ---
+            alpha = data_cfg.get("default_alpha", "Alpha1_4")
+            ratio = data_cfg.get("default_building_ratio", "1_1_3")
+            adapter = WindDataAdapter(alpha=alpha, building_ratio=ratio)
+            logger.info(f"  Using raw .mat data: alpha={alpha}, building_ratio={ratio}")
+
+            data = adapter.get_training_data(
+                angle=0, seq_length=seq_length, normalize=True
+            )
+            state["X_train"] = data["X_train"]
+            state["y_train"] = data["y_train"]
+            state["X_val"] = data["X_val"]
+            state["y_val"] = data["y_val"]
+            state["X_test"] = data["X_test"]
+            state["y_test"] = data["y_test"]
+            state["test_seq_for_forecast"] = data["test_seed"]
+            state["y_true_future"] = data["y_future"]
+
+        logger.info(f"  Train: {state['X_train'].shape}, Val: {state['X_val'].shape}, Test: {state['X_test'].shape}")
+        logger.info(f"  Input features: {state['X_train'].shape[2]}")
+        logger.info(f"  Forecast seed: {state['test_seq_for_forecast'].shape}, Future: {state['y_true_future'].shape}")
         state["status"] = "data_loaded"
 
     except Exception as e:
         logger.error(f"Error loading data: {e}")
+        traceback.print_exc()
         state["errors"].append(f"Data loading: {e}")
         state["status"] = "error"
 
@@ -287,11 +333,12 @@ def train_models(state: ModelerState) -> ModelerState:
         logger.info(f"  Training {name}...")
 
         try:
-            # Instantiate model
+            # Instantiate model — input_size = num features (4 for multivariate faces)
+            n_features = X_train.shape[2] if X_train.ndim >= 3 else 1
             if gen_model["source"] == "seed":
                 model_config = {
-                    "input_size": X_train.shape[2],
-                    "output_size": 1,
+                    "input_size": n_features,
+                    "output_size": n_features,
                     "seq_length": X_train.shape[1],
                 }
                 model = SEED_MODEL_REGISTRY[name](model_config)
@@ -311,6 +358,11 @@ def train_models(state: ModelerState) -> ModelerState:
 
             # Re-instantiate for full training (fresh weights)
             if gen_model["source"] == "seed":
+                model_config = {
+                    "input_size": n_features,
+                    "output_size": n_features,
+                    "seq_length": X_train.shape[1],
+                }
                 model = SEED_MODEL_REGISTRY[name](model_config)
             else:
                 model = _load_generated_model(gen_model["file_path"], X_train.shape)

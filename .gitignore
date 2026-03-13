@@ -1,2 +1,5 @@
 # Data files
 Data/
+
+# API keys — never commit
+AI_Agent/.env

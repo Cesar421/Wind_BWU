@@ -65,16 +65,25 @@ def check_environment():
     except ImportError:
         critical_issues.append("PyTorch not installed")
 
-    # Check data (BDH .mat files)
+    # Check data (BDH .mat files or postprocessed .npy files)
+    postprocess_dir = cfg.project_root / "Data" / "Data_All_The_BDH_PostProcess"
     bdh_dir = cfg.project_root / "Data" / "Data_All_The_BDH"
-    if bdh_dir.exists():
+    use_postprocessed = cfg.settings.get("data", {}).get("use_postprocessed", True)
+
+    if use_postprocessed and postprocess_dir.exists():
+        npy_files = list(postprocess_dir.rglob("*.npy"))
+        if not npy_files:
+            critical_issues.append(f"No .npy files found in {postprocess_dir}")
+        else:
+            logging.info(f"Data: {len(npy_files)} postprocessed .npy files found")
+    elif bdh_dir.exists():
         mat_files = list(bdh_dir.rglob("*.mat"))
         if not mat_files:
             critical_issues.append(f"No .mat files found in {bdh_dir}")
         else:
             logging.info(f"Data: {len(mat_files)} .mat files found in Data_All_The_BDH")
     else:
-        critical_issues.append(f"BDH data directory not found: {bdh_dir}")
+        critical_issues.append(f"Data directory not found: {postprocess_dir} or {bdh_dir}")
 
     for issue in critical_issues:
         logging.error(f"[ERROR] {issue}")
