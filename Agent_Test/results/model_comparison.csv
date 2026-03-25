@@ -1,0 +1,2 @@
+model,alpha,ratio,seq_length,horizon,rmse,mae,r2,mape,directional_accuracy,parameters,train_time_s,epochs_run,best_val_loss
+CNNLSTM,Alpha1_4,2_1_3,100,1,0.108196,0.076073,0.58798,10.13927,81.708855,1210241,7662.9,53,0.01650149
