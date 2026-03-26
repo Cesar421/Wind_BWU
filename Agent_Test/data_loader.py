@@ -196,3 +196,113 @@ def load_single_building(
         "horizon": horizon,
         "alpha": alpha, "ratio": ratio,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Multi-building dataset (ALL buildings from both Alpha folders)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def load_all_buildings(
+    seq_length: int = 100,
+    step: int = 10,
+    horizon: int = 1,
+    train_ratio: float = 0.70,
+    val_ratio: float = 0.15,
+    data_dir: Optional[Path] = None,
+) -> Dict[str, np.ndarray]:
+    """
+    Load and prepare data from ALL buildings in Alpha1_4 and Alpha1_6.
+
+    Each building-angle combination is an independent time series.
+    Chronological 70/15/15 split per series, z-score fitted on all
+    training data combined, sliding windows built within each split
+    to avoid cross-boundary samples.
+
+    Returns dict with keys:
+        X_train, y_train, X_val, y_val, X_test, y_test,
+        mu, sigma, test_seed, y_future, n_features, seq_length, horizon
+    """
+    base = data_dir or POSTPROCESS_DIR
+    alphas = ["Alpha1_4", "Alpha1_6"]
+
+    # ── Phase 1: load every (alpha, ratio, angle) and split ──
+    train_segs: List[np.ndarray] = []
+    val_segs:   List[np.ndarray] = []
+    test_segs:  List[np.ndarray] = []
+    n_series = 0
+
+    for alpha in alphas:
+        alpha_dir = base / alpha
+        if not alpha_dir.exists():
+            print(f"  [skip] {alpha_dir} not found")
+            continue
+        for ratio_dir in sorted(alpha_dir.iterdir()):
+            if not ratio_dir.is_dir():
+                continue
+            ratio = ratio_dir.name
+            if not (ratio_dir / "Data").exists():
+                continue
+            angles = available_angles(alpha, ratio, base)
+            for angle in angles:
+                try:
+                    ts = load_faces(alpha, ratio, angle, base)  # (32768, 4)
+                except FileNotFoundError:
+                    continue
+                T = len(ts)
+                t1 = int(T * train_ratio)
+                t2 = int(T * (train_ratio + val_ratio))
+                train_segs.append(ts[:t1])
+                val_segs.append(ts[t1:t2])
+                test_segs.append(ts[t2:])
+                n_series += 1
+
+    print(f"  Loaded {n_series} building-angle series from {alphas}")
+    if n_series == 0:
+        raise RuntimeError("No data found — check POSTPROCESS_DIR path.")
+
+    # ── Phase 2: fit z-score on concatenated training data ──
+    all_train_raw = np.concatenate(train_segs, axis=0)  # (N_train, 4)
+    mu, sigma = zscore_fit(all_train_raw)
+    del all_train_raw
+
+    # ── Phase 3: normalise → window each segment independently ──
+    def _window_segments(segs, s):
+        Xs, ys = [], []
+        for seg in segs:
+            seg_n = zscore_transform(seg, mu, sigma)
+            X, y = build_sequences(seg_n, seq_length, s, horizon)
+            if len(X) > 0:
+                Xs.append(X)
+                ys.append(y)
+        return np.concatenate(Xs, axis=0), np.concatenate(ys, axis=0)
+
+    X_train, y_train = _window_segments(train_segs, step)
+    del train_segs
+    X_val, y_val = _window_segments(val_segs, max(step, 5))
+    del val_segs
+
+    # Keep last test segment for autoregressive seed & ground truth
+    last_test_raw = test_segs[-1].copy()
+    X_test, y_test = _window_segments(test_segs, max(step, 5))
+    del test_segs
+
+    last_test_norm = zscore_transform(last_test_raw, mu, sigma)
+    test_seed = last_test_norm[:seq_length].astype(np.float32)
+    y_future = last_test_norm[seq_length: seq_length + 500, 0].astype(np.float32)
+
+    print(f"  Train: {X_train.shape}  Val: {X_val.shape}  Test: {X_test.shape}")
+    mem_mb = (X_train.nbytes + y_train.nbytes + X_val.nbytes +
+              y_val.nbytes + X_test.nbytes + y_test.nbytes) / 1e6
+    print(f"  Total windowed arrays: {mem_mb:.0f} MB")
+
+    return {
+        "X_train": X_train, "y_train": y_train,
+        "X_val":   X_val,   "y_val":   y_val,
+        "X_test":  X_test,  "y_test":  y_test,
+        "mu": mu, "sigma": sigma,
+        "test_seed": test_seed,
+        "y_future": y_future,
+        "n_features": 4,
+        "seq_length": seq_length,
+        "horizon": horizon,
+    }

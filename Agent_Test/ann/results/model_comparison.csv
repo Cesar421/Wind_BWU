@@ -1,0 +1,2 @@
+model,rmse,mae,r2,mape,directional_accuracy,parameters,train_time_s,epochs_run,best_val_loss
+ann,0.267428,0.261266,-1.517177,41.698353,69.178547,391301,9.5,16,0.47015808

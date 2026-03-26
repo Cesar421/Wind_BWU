@@ -92,12 +92,41 @@ Similar ANN approach, applied to low-rise buildings' roofs. Input features inclu
 
 ## Summary Table — Model Comparison
 
-| Paper | Model | Task | Key Metric |
-|---|---|---|---|
-| Hybrid ML (MICE 2025) | CNN-LSTM | Time-series forecasting + reconstruction | RMSE, MAE, R² |
-| Hu et al. | GAN, XGBoost | Cp field prediction under interference | R² |
-| Kareem JWEIA 2024 | LSTM, TCN, Transformer | Cp time-series forecasting | RMSE |
-| Aldoum 2025 | ANN, GBR | Mean/peak Cp from geometry | R² ≈ 0.97 |
-| ANN Building Surfaces | Feedforward ANN | Surface Cp from parameters | MSE |
-| ANN Low-rise Roofs | Feedforward ANN | Roof Cp | MSE |
-| Interpretation paper | XGBoost + SHAP | Explainability | Feature importance |
+| Paper | Model | Task | Key Metric | Implemented |
+|---|---|---|---|---|
+| Hybrid ML (MICE 2025) | **CNN-LSTM** | Time-series forecasting + reconstruction | RMSE, MAE, R² | ✅ `cnn_lstm/` |
+| Kareem JWEIA 2024 | **LSTM** | Cp time-series forecasting | RMSE | ✅ `lstm/` |
+| Kareem JWEIA 2024 | **TCN** | Cp time-series forecasting | RMSE | ✅ `tcn/` |
+| Kareem JWEIA 2024 | **Transformer** | Multi-horizon Cp forecasting | RMSE | ✅ `transformer/` |
+| Aldoum 2025 | **ANN (Feedforward)** | Mean/peak Cp from geometry | R² ≈ 0.97 | ✅ `ann/` |
+| Hu et al. | GAN, XGBoost | Cp field prediction under interference | R² | — |
+| ANN Building Surfaces | Feedforward ANN | Surface Cp from parameters | MSE | — |
+| ANN Low-rise Roofs | Feedforward ANN | Roof Cp | MSE | — |
+| Interpretation paper | XGBoost + SHAP | Explainability | Feature importance | — |
+
+## Implemented Models — Architecture Details
+
+### CNN-LSTM (`Agent_Test/cnn_lstm/`)
+- **Source:** Hybrid ML (MICE 2025)
+- **Architecture:** Conv1D(4→64→128→256) + BatchNorm + ReLU + MaxPool → LSTM(256, 2 layers) → FC(256→128→1)
+- **Hyperparams:** lr=1e-3, weight_decay=1e-4, dropout=0.3, early stopping patience=15
+
+### LSTM (`Agent_Test/lstm/`)
+- **Source:** Kareem JWEIA 2024
+- **Architecture:** LSTM(4→256, 2 layers, dropout=0.2) → FC(256→128→1)
+- **Hyperparams:** lr=1e-3, weight_decay=1e-4, fc_dropout=0.3
+
+### TCN (`Agent_Test/tcn/`)
+- **Source:** Kareem JWEIA 2024
+- **Architecture:** 3× TemporalBlock (causal dilated conv + residual) [64, 128, 256 channels] → FC(256→128→1)
+- **Hyperparams:** kernel_size=3, dilations=[1,2,4], dropout=0.2, lr=1e-3
+
+### Transformer (`Agent_Test/transformer/`)
+- **Source:** Kareem JWEIA 2024
+- **Architecture:** Linear(4→128) + PosEncoding → TransformerEncoder(3 layers, 8 heads, d_ff=256) → FC(128→64→1)
+- **Hyperparams:** dropout=0.1, lr=1e-4 (lower for stability)
+
+### ANN (`Agent_Test/ann/`)
+- **Source:** Aldoum & Stathopoulos 2025
+- **Architecture:** Flatten(100×4) → FC[100, 500, 500, 100] with ReLU + Dropout(0.3) → Linear(100→1)
+- **Hyperparams:** lr=1e-3, weight_decay=1e-4

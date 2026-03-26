@@ -57,34 +57,54 @@ Data/Data_All_The_BDH_PostProcess/
         ...
 ```
 
+**IMPORTANT - Training Data Selection:**
+**Use ALL available datasets from BOTH Alpha1_4 AND Alpha1_6 folders**, including all building configurations within each:
+- **Alpha1_4**: 12 configurations (1_1_2, 1_1_3, 1_1_4, 1_1_5, 2_1_2, 2_1_3, 2_1_4, 2_1_5, 3_1_2, 3_1_3, 3_1_4, 3_1_5)
+- **Alpha1_6**: 8 configurations (1_1_2, 1_1_3, 1_1_4, 1_1_5, 3_1_2, 3_1_3, 3_1_4, 3_1_5)
+
+This provides diverse terrain roughness conditions and building geometries for robust model training.
+
 **Key facts:**
 - Each `.npy` file is a 1-D array of **32 768 time steps** (float32) sampled at **1 000 Hz** (~32.8 s of wind-tunnel data).
 - **Four façade faces**: windward, leeward, sideleft, sideright (already averaged across taps per face).
-- **Building ratios** (B:D:H): `1_1_2` through `3_1_5` (12 configurations).
+- **Building ratios** (B:D:H): `1_1_2` through `3_1_5` (varies by Alpha folder).
 - **Wind angles**: 0°–50° (step 5°) for `1_1_*` buildings; 0°–100° (step 5°) for `2_1_*` and `3_1_*`.
-- **Two terrain profiles**: Alpha1_4, Alpha1_6.
+- **Two terrain profiles**: Alpha1_4 (α=1/4), Alpha1_6 (α=1/6) represent different atmospheric boundary layer conditions.
 
 When loading data, use **float32** and a **sliding-window step ≥ 10** to avoid OOM (~1.8 GB footprint for all buildings).
 
 ### 3. Implementation Workflow
 
-For every model you implement, follow this pipeline:
+**First**, create a shared data loader at `Agent_Test/data_loader.py` that:
+- Scans both `Alpha1_4/` and `Alpha1_6/` folders and all building configurations within each.
+- Loads the four façade `.npy` files (windward, leeward, sideleft, sideright) per angle.
+- Applies min-max or z-score normalization (save scaler parameters for inverse transform).
+- Returns sliding-window datasets as PyTorch `Dataset` objects with chronological 70/15/15 splits.
+- All models import from this shared loader to avoid code duplication.
 
-1. **Create a Python script** in `Agent_Test/models/<model_name>.py` that:
-   - Loads data from `Data/Data_All_The_BDH_PostProcess/` using numpy.
+**Then, for every model**, create a **separate folder** `Agent_Test/<model_name>/` containing:
+
+1. **`models/<model_name>.py`** — Model architecture class that:
    - Implements the architecture exactly as described in the paper.
-   - Trains with a chronological 70/15/15 train/val/test split.
-   - Uses early stopping (patience 15) and learning-rate scheduling.
+   - Inherits from `torch.nn.Module`.
+   - Includes a `predict(x)` method with `torch.no_grad()`.
+
+2. **`train_<model_name>.py`** — Training script that:
+   - Imports the shared `data_loader.py` from `Agent_Test/`.
+   - Trains with early stopping (patience 15) and learning-rate scheduling (ReduceLROnPlateau).
    - Logs RMSE, MAE, R², MAPE on the test set.
-   - Saves the trained model checkpoint to `Agent_Test/checkpoints/`.
+   - Records training time and parameter count.
+   - Saves the trained model checkpoint to `<model_name>/checkpoints/`.
+   - Generates multi-step forecasts (horizons: 1, 10, 50, 100, 500 steps).
+   - Saves forecast arrays to `<model_name>/results/forecasts/`.
+   - Saves training curves and prediction vs. actual plots to `<model_name>/results/plots/`.
+   - Writes per-model metrics to `<model_name>/results/model_comparison.csv`.
 
-2. **Create a training script** `Agent_Test/train_all.py` that runs all models sequentially and writes a comparison CSV to `Agent_Test/results/model_comparison.csv`.
-
-3. **Create a forecasting script** `Agent_Test/forecast.py` that:
-   - Loads a trained checkpoint.
-   - Generates multi-step Cp time-series forecasts (horizons: 1, 10, 50, 100, 500 steps).
-   - Saves generated time-series arrays to `Agent_Test/results/forecasts/`.
-   - Plots predicted vs. actual and saves figures to `Agent_Test/results/plots/`.
+3. **`Agent_Test/train_all.py`** — Master script that:
+   - Runs all model training scripts sequentially.
+   - Collects metrics from each `<model_name>/results/model_comparison.csv`.
+   - Generates a consolidated comparison CSV at `Agent_Test/results/model_comparison.csv`.
+   - Creates cross-model comparison plots at `Agent_Test/results/plots/`.
 
 ### 4. Model Requirements
 
@@ -98,31 +118,57 @@ Each model must:
 
 ```
 Agent_Test/
-    paper_summaries.md
-    train_all.py
-    forecast.py
-    data_loader.py            # Shared data loading utilities
-    models/
-        <model_name>.py       # One file per paper-derived model
-    checkpoints/              # Saved .pt files
+    paper_summaries.md          # Structured summary of all 7 papers
+    data_loader.py              # Shared data loading utilities (used by all models)
+    train_all.py                # Master script: runs all models, generates consolidated comparison
     results/
-        model_comparison.csv  # Metrics across all models
-        forecasts/            # .npy forecast arrays
-        plots/                # .png comparison plots
+        model_comparison.csv    # Consolidated metrics across ALL models
+        plots/                  # Cross-model comparison plots
+    <model_name>/               # One folder per model (e.g., cnn_lstm/, transformer/, ann/)
+        models/<model_name>.py  # Model architecture class
+        train_<model_name>.py   # Training + evaluation + forecasting script
+        checkpoints/            # Saved .pt files
+        results/
+            model_comparison.csv  # Per-model metrics
+            plots/                # Training curves, prediction vs actual
+            forecasts/            # .npy multi-step forecast arrays
 ```
 
-### 6. Evaluation Criteria
+### 6. Preprocessing
+
+- Apply **z-score normalization** per façade feature (subtract mean, divide by std from training set only).
+- Save scaler parameters so predictions can be inverse-transformed for reporting.
+- Use sliding windows with **step ≥ 10** to reduce memory footprint.
+
+### 7. Evaluation Criteria
 
 Compare all models on:
 - **RMSE**, **MAE**, **R²**, **MAPE** on the test set.
 - **Directional accuracy** (% of correctly predicted up/down movements).
 - **Multi-horizon forecast quality** at 1, 10, 50, 100, 500 steps ahead.
-- **Training time** and **parameter count**.
+- **Training time** (seconds) and **parameter count**.
 
 ## Tool Preferences
 
 - **Use**: `read_file`, `create_file`, `replace_string_in_file`, `run_in_terminal`, `grep_search`, `semantic_search`, `fetch_webpage` (for PDFs)
 - **Avoid**: Do not push code or modify files outside `Agent_Test/` and `Wind pressure coefficients/` without asking.
+
+## Environment & GPU
+
+**Always run scripts using the `ML_Cesar` conda environment** — it has PyTorch 2.7.1+cu118, CUDA 11.8, Python 3.12, and all required libraries pre-installed.
+
+Use this pattern for every `run_in_terminal` call:
+```powershell
+conda activate ML_Cesar; $env:KMP_DUPLICATE_LIB_OK="TRUE"; cd "c:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\<model_name>"; python train_<model_name>.py
+```
+
+**GPU hardware:** NVIDIA RTX A4000 — 16 GB VRAM, CUDA 11.8.
+- `torch.cuda.is_available()` returns `True` in this environment.
+- All models and tensors must be moved to `device = torch.device("cuda")`.
+- Do **not** fall back to CPU unless CUDA throws an explicit out-of-memory error.
+- Monitor GPU memory with `torch.cuda.memory_allocated()` if needed.
+- Use `pin_memory=True` in DataLoaders for faster CPU→GPU transfer.
+- Use `num_workers=0` (Windows does not support multiprocessing workers in DataLoader by default).
 
 ## Constraints
 
@@ -130,4 +176,4 @@ Compare all models on:
 - Use **chronological splits only** (no random shuffling for time-series).
 - Validate on the **validation set**; report final metrics on the **test set**.
 - Pin random seeds (`torch.manual_seed(42)`, `np.random.seed(42)`) for reproducibility.
-- If GPU is unavailable, fall back to CPU gracefully.
+- Always set `$env:KMP_DUPLICATE_LIB_OK="TRUE"` before running any Python script (required on this machine to avoid OpenMP conflicts).

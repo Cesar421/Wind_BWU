@@ -1,0 +1,244 @@
+Quick test started at 2026-03-26 09:39:01
+Building: Alpha1_4/2_1_3
+
+======================================================================
+  QUICK TEST - Alpha1_4/2_1_3
+======================================================================
+
+----------------------------------------------------------------------
+  Starting cnn_lstm at 09:39:01 ...
+----------------------------------------------------------------------
+
+============================================================
+  TCN
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 459,073
+  Epoch   1 | train=0.833253 | val=0.191790 | lr=1.00e-03
+  Epoch  10 | train=0.020646 | val=0.020133 | lr=1.00e-03
+  Epoch  20 | train=0.012655 | val=0.021355 | lr=1.00e-03
+  Epoch  30 | train=0.008355 | val=0.009392 | lr=2.50e-04
+  Early stopping at epoch 31
+
+-- Test Metrics --
+  rmse: 0.0248
+  mae: 0.0206
+  r2: 0.9783
+  mape: 3.4265
+  directional_accuracy: 80.0504
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\tcn\results
+  tcn completed in 255.1s
+
+----------------------------------------------------------------------
+  Starting transformer at 09:43:10 ...
+----------------------------------------------------------------------
+
+============================================================
+  CNN_LSTM
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 1,210,241
+  Epoch   1 | train=0.053897 | val=0.264609 | lr=1.00e-03
+  Epoch  10 | train=0.017227 | val=0.046719 | lr=1.00e-03
+  Epoch  20 | train=0.015356 | val=0.058730 | lr=1.00e-03
+  Epoch  30 | train=0.013717 | val=0.024697 | lr=5.00e-04
+  Epoch  40 | train=0.012002 | val=0.023680 | lr=1.25e-04
+  Early stopping at epoch 40
+
+-- Test Metrics --
+  rmse: 0.0970
+  mae: 0.0655
+  r2: 0.6687
+  mape: 8.9978
+  directional_accuracy: 82.0483
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\cnn_lstm\results
+  cnn_lstm completed in 254.3s
+
+----------------------------------------------------------------------
+  Starting lstm at 09:43:15 ...
+----------------------------------------------------------------------
+
+============================================================
+  LSTM
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 827,649
+  Epoch   1 | train=0.050386 | val=0.012500 | lr=1.00e-03
+  Epoch  10 | train=0.017905 | val=0.010716 | lr=1.00e-03
+  Epoch  20 | train=0.016298 | val=0.022486 | lr=2.50e-04
+  Early stopping at epoch 23
+
+-- Test Metrics --
+  rmse: 0.0426
+  mae: 0.0333
+  r2: 0.9360
+  mape: 4.9490
+  directional_accuracy: 78.1399
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\lstm\results
+  lstm completed in 189.4s
+
+----------------------------------------------------------------------
+  Starting tcn at 09:46:25 ...
+----------------------------------------------------------------------
+
+============================================================
+  TCN
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 459,073
+  Epoch   1 | train=0.831750 | val=0.092624 | lr=1.00e-03
+  Epoch  10 | train=0.019075 | val=0.011152 | lr=5.00e-04
+  Epoch  20 | train=0.014545 | val=0.017826 | lr=2.50e-04
+  Early stopping at epoch 29
+
+-- Test Metrics --
+  rmse: 0.0277
+  mae: 0.0229
+  r2: 0.9729
+  mape: 3.8930
+  directional_accuracy: 74.8327
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\tcn\results
+  tcn completed in 273.1s
+
+----------------------------------------------------------------------
+  Starting transformer at 09:50:58 ...
+----------------------------------------------------------------------
+
+============================================================
+  TRANSFORMER
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 406,401
+  Epoch   1 | train=0.196904 | val=0.091115 | lr=1.00e-04
+  Epoch  10 | train=0.026683 | val=0.065695 | lr=1.00e-04
+  Epoch  20 | train=0.021716 | val=0.067508 | lr=1.00e-04
+  Epoch  30 | train=0.019163 | val=0.028774 | lr=5.00e-05
+  Early stopping at epoch 37
+
+-- Test Metrics --
+  rmse: 0.1516
+  mae: 0.1179
+  r2: 0.1906
+  mape: 16.0922
+  directional_accuracy: 77.4416
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\transformer\results
+  transformer completed in 714.2s
+
+----------------------------------------------------------------------
+  Starting ann at 09:55:05 ...
+----------------------------------------------------------------------
+
+============================================================
+  ANN
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 391,301
+  Epoch   1 | train=0.124192 | val=0.470158 | lr=1.00e-03
+  Epoch  10 | train=0.027555 | val=0.656207 | lr=5.00e-04
+  Early stopping at epoch 16
+
+-- Test Metrics --
+  rmse: 0.2674
+  mae: 0.2613
+  r2: -1.5172
+  mape: 41.6984
+  directional_accuracy: 69.1785
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\ann\results
+  ann completed in 16.9s
+
+======================================================================
+  All models finished at 09:55:21
+======================================================================
+
+Consolidated: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\model_comparison.csv
+
+==========================================================================================
+  MODEL COMPARISON - Alpha1_4/2_1_3
+==========================================================================================
+  Model               RMSE      MAE       R2     MAPE     Params  Time(s)
+  --------------- -------- -------- -------- -------- ---------- --------
+  cnn_lstm          0.0970   0.0655   0.6686     9.00  1,210,241    248.5
+  lstm              0.0426   0.0333   0.9360     4.95    827,649    176.5
+  tcn               0.0277   0.0229   0.9729     3.89    459,073    266.2
+  transformer       0.1516   0.1179   0.1906    16.09    406,401    706.8
+  ann               0.2674   0.2613  -1.5172    41.70    391,301     11.7
+==========================================================================================
+Plot: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\plots\quick_test_comparison.png
+
+============================================================
+  TRANSFORMER
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 406,401
+  Epoch   1 | train=0.196904 | val=0.091115 | lr=1.00e-04
+  Epoch  10 | train=0.026687 | val=0.064520 | lr=1.00e-04
+  Epoch  20 | train=0.021689 | val=0.063504 | lr=1.00e-04
+  Epoch  30 | train=0.019302 | val=0.028248 | lr=1.00e-04
+  Epoch  40 | train=0.017730 | val=0.032107 | lr=2.50e-05
+  Early stopping at epoch 42
+
+-- Test Metrics --
+  rmse: 0.1286
+  mae: 0.0944
+  r2: 0.4178
+  mape: 12.7023
+  directional_accuracy: 77.8974
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\transformer\results
+  transformer completed in 478.4s
+
+----------------------------------------------------------------------
+  Starting ann at 09:58:56 ...
+----------------------------------------------------------------------
+
+============================================================
+  ANN
+============================================================
+Device: cuda
+Quick-test mode: Alpha1_4/2_1_3
+Parameters: 391,301
+  Epoch   1 | train=0.124192 | val=0.470158 | lr=1.00e-03
+  Epoch  10 | train=0.027555 | val=0.656207 | lr=5.00e-04
+  Early stopping at epoch 16
+
+-- Test Metrics --
+  rmse: 0.2674
+  mae: 0.2613
+  r2: -1.5172
+  mape: 41.6984
+  directional_accuracy: 69.1785
+
+Results saved to C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\ann\results
+  ann completed in 14.1s
+
+======================================================================
+  All models finished at 09:59:10
+======================================================================
+
+Consolidated: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\model_comparison.csv
+
+==========================================================================================
+  MODEL COMPARISON - Alpha1_4/2_1_3
+==========================================================================================
+  Model               RMSE      MAE       R2     MAPE     Params  Time(s)
+  --------------- -------- -------- -------- -------- ---------- --------
+  cnn_lstm          0.0970   0.0655   0.6686     9.00  1,210,241    248.5
+  lstm              0.0426   0.0333   0.9360     4.95    827,649    176.5
+  tcn               0.0277   0.0229   0.9729     3.89    459,073    266.2
+  transformer       0.1286   0.0944   0.4178    12.70    406,401    473.0
+  ann               0.2674   0.2613  -1.5172    41.70    391,301      9.5
+==========================================================================================
+Plot: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\plots\quick_test_comparison.png

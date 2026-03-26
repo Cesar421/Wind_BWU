@@ -1,0 +1,176 @@
+Training started at 2026-03-25 14:33:23
+======================================================================
+  MASTER TRAINING — Running all models sequentially
+======================================================================
+
+----------------------------------------------------------------------
+  Starting cnn_lstm at 14:33:23 ...
+----------------------------------------------------------------------
+
+============================================================
+  CNN_LSTM
+============================================================
+Device: cuda
+  Loaded 340 building-angle series from ['Alpha1_4', 'Alpha1_6']
+  Train: (776560, 100, 4)  Val: (163880, 100, 4)  Test: (163880, 100, 4)
+  Total windowed arrays: 1771 MB
+Parameters: 1,210,241
+  Epoch   1 | train=0.016983 | val=0.008529 | lr=1.00e-03
+  Epoch  10 | train=0.010485 | val=0.003125 | lr=1.00e-03
+  Epoch  20 | train=0.009886 | val=0.002698 | lr=5.00e-04
+  Epoch  30 | train=0.009520 | val=0.002516 | lr=2.50e-04
+  Epoch  40 | train=0.009316 | val=0.002232 | lr=1.25e-04
+  Epoch  50 | train=0.009234 | val=0.002197 | lr=1.25e-04
+  Epoch  60 | train=0.009143 | val=0.002437 | lr=6.25e-05
+  Epoch  70 | train=0.009106 | val=0.002272 | lr=3.13e-05
+  Epoch  80 | train=0.009075 | val=0.002161 | lr=1.56e-05
+  Epoch  90 | train=0.009031 | val=0.002169 | lr=7.81e-06
+  Early stopping at epoch 94
+  [STDERR] Traceback (most recent call last):
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\cnn_lstm\train_cnn_lstm.py", line 87, in <module>
+  [STDERR]     main()
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\cnn_lstm\train_cnn_lstm.py", line 66, in main
+  [STDERR]     print("\n\u2500\u2500 Test Metrics \u2500\u2500")
+  [STDERR]   File "C:\Users\verwalter\anaconda3\envs\ML_Cesar\Lib\encodings\cp1252.py", line 19, in encode
+  [STDERR]     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+  [STDERR]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [STDERR] UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to <undefined>
+  WARNING: cnn_lstm exited with code 1
+  STATUS: cnn_lstm DONE (code=1)
+
+----------------------------------------------------------------------
+  Starting lstm at 16:33:50 ...
+----------------------------------------------------------------------
+
+============================================================
+  LSTM
+============================================================
+Device: cuda
+  Loaded 340 building-angle series from ['Alpha1_4', 'Alpha1_6']
+  Train: (776560, 100, 4)  Val: (163880, 100, 4)  Test: (163880, 100, 4)
+  Total windowed arrays: 1771 MB
+Parameters: 827,649
+  Epoch   1 | train=0.013822 | val=0.003786 | lr=1.00e-03
+  Epoch  10 | train=0.010483 | val=0.004593 | lr=1.00e-03
+  Epoch  20 | train=0.010084 | val=0.003187 | lr=5.00e-04
+  Epoch  30 | train=0.009841 | val=0.003004 | lr=2.50e-04
+  Epoch  40 | train=0.009687 | val=0.002999 | lr=1.25e-04
+  Epoch  50 | train=0.009694 | val=0.003006 | lr=6.25e-05
+  Early stopping at epoch 57
+  [STDERR] Traceback (most recent call last):
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\lstm\train_lstm.py", line 79, in <module>
+  [STDERR]     main()
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\lstm\train_lstm.py", line 60, in main
+  [STDERR]     print("\n\u2500\u2500 Test Metrics \u2500\u2500")
+  [STDERR]   File "C:\Users\verwalter\anaconda3\envs\ML_Cesar\Lib\encodings\cp1252.py", line 19, in encode
+  [STDERR]     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+  [STDERR]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [STDERR] UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to <undefined>
+  WARNING: lstm exited with code 1
+  STATUS: lstm DONE (code=1)
+
+----------------------------------------------------------------------
+  Starting tcn at 17:18:57 ...
+----------------------------------------------------------------------
+
+============================================================
+  TCN
+============================================================
+Device: cuda
+  Loaded 340 building-angle series from ['Alpha1_4', 'Alpha1_6']
+  Train: (776560, 100, 4)  Val: (163880, 100, 4)  Test: (163880, 100, 4)
+  Total windowed arrays: 1771 MB
+Parameters: 459,073
+  Epoch   1 | train=0.072555 | val=0.005233 | lr=1.00e-03
+  Epoch  10 | train=0.006831 | val=0.002884 | lr=1.00e-03
+  Epoch  20 | train=0.006760 | val=0.003724 | lr=5.00e-04
+  Epoch  30 | train=0.006396 | val=0.002316 | lr=2.50e-04
+  Epoch  40 | train=0.006251 | val=0.002036 | lr=1.25e-04
+  Epoch  50 | train=0.006155 | val=0.002050 | lr=1.25e-04
+  Epoch  60 | train=0.006026 | val=0.001789 | lr=6.25e-05
+  Epoch  70 | train=0.006009 | val=0.001774 | lr=6.25e-05
+  Epoch  80 | train=0.005958 | val=0.001696 | lr=3.13e-05
+  Epoch  90 | train=0.005940 | val=0.001705 | lr=3.13e-05
+  Epoch 100 | train=0.005913 | val=0.001641 | lr=1.56e-05
+  Epoch 110 | train=0.005866 | val=0.001633 | lr=1.56e-05
+  Epoch 120 | train=0.005851 | val=0.001627 | lr=7.81e-06
+  Epoch 130 | train=0.005839 | val=0.001611 | lr=3.91e-06
+  Epoch 140 | train=0.005848 | val=0.001615 | lr=9.77e-07
+  Epoch 150 | train=0.005800 | val=0.001594 | lr=9.77e-07
+  Epoch 160 | train=0.005839 | val=0.001608 | lr=4.88e-07
+  Early stopping at epoch 165
+  [STDERR] Traceback (most recent call last):
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\tcn\train_tcn.py", line 79, in <module>
+  [STDERR]     main()
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\tcn\train_tcn.py", line 60, in main
+  [STDERR]     print("\n\u2500\u2500 Test Metrics \u2500\u2500")
+  [STDERR]   File "C:\Users\verwalter\anaconda3\envs\ML_Cesar\Lib\encodings\cp1252.py", line 19, in encode
+  [STDERR]     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+  [STDERR]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [STDERR] UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to <undefined>
+  WARNING: tcn exited with code 1
+  STATUS: tcn DONE (code=1)
+
+----------------------------------------------------------------------
+  Starting transformer at 19:45:50 ...
+----------------------------------------------------------------------
+
+============================================================
+  TRANSFORMER
+============================================================
+Device: cuda
+  Loaded 340 building-angle series from ['Alpha1_4', 'Alpha1_6']
+  Train: (776560, 100, 4)  Val: (163880, 100, 4)  Test: (163880, 100, 4)
+  Total windowed arrays: 1771 MB
+Parameters: 406,401
+  Epoch   1 | train=0.030747 | val=0.005355 | lr=1.00e-04
+  Epoch  10 | train=0.008716 | val=0.003300 | lr=1.00e-04
+  Epoch  20 | train=0.008151 | val=0.003243 | lr=5.00e-05
+  Epoch  30 | train=0.007790 | val=0.003174 | lr=2.50e-05
+  Epoch  40 | train=0.007696 | val=0.003216 | lr=1.25e-05
+  Epoch  50 | train=0.007678 | val=0.003196 | lr=3.13e-06
+  Early stopping at epoch 51
+  [STDERR] Traceback (most recent call last):
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\transformer\train_transformer.py", line 80, in <module>
+  [STDERR]     main()
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\transformer\train_transformer.py", line 61, in main
+  [STDERR]     print("\n\u2500\u2500 Test Metrics \u2500\u2500")
+  [STDERR]   File "C:\Users\verwalter\anaconda3\envs\ML_Cesar\Lib\encodings\cp1252.py", line 19, in encode
+  [STDERR]     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+  [STDERR]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [STDERR] UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to <undefined>
+  WARNING: transformer exited with code 1
+  STATUS: transformer DONE (code=1)
+
+----------------------------------------------------------------------
+  Starting ann at 21:28:08 ...
+----------------------------------------------------------------------
+
+============================================================
+  ANN
+============================================================
+Device: cuda
+  Loaded 340 building-angle series from ['Alpha1_4', 'Alpha1_6']
+  Train: (776560, 100, 4)  Val: (163880, 100, 4)  Test: (163880, 100, 4)
+  Total windowed arrays: 1771 MB
+Parameters: 391,301
+  Epoch   1 | train=0.034053 | val=0.162182 | lr=1.00e-03
+  Epoch  10 | train=0.016576 | val=0.165333 | lr=5.00e-04
+  Early stopping at epoch 18
+  [STDERR] Traceback (most recent call last):
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\ann\train_ann.py", line 80, in <module>
+  [STDERR]     main()
+  [STDERR]   File "C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\ann\train_ann.py", line 61, in main
+  [STDERR]     print("\n\u2500\u2500 Test Metrics \u2500\u2500")
+  [STDERR]   File "C:\Users\verwalter\anaconda3\envs\ML_Cesar\Lib\encodings\cp1252.py", line 19, in encode
+  [STDERR]     return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+  [STDERR]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  [STDERR] UnicodeEncodeError: 'charmap' codec can't encode characters in position 2-3: character maps to <undefined>
+  WARNING: ann exited with code 1
+  STATUS: ann DONE (code=1)
+
+======================================================================
+  All models finished at 21:31:06
+======================================================================
+
+No per-model results found. Nothing to consolidate.
