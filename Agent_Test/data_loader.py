@@ -209,21 +209,28 @@ def load_all_buildings(
     train_ratio: float = 0.70,
     val_ratio: float = 0.15,
     data_dir: Optional[Path] = None,
+    alphas: Optional[List[str]] = None,
+    ratios: Optional[List[str]] = None,
 ) -> Dict[str, np.ndarray]:
     """
-    Load and prepare data from ALL buildings in Alpha1_4 and Alpha1_6.
+    Load and prepare data from buildings in the requested Alpha folders.
 
-    Each building-angle combination is an independent time series.
-    Chronological 70/15/15 split per series, z-score fitted on all
-    training data combined, sliding windows built within each split
-    to avoid cross-boundary samples.
+    Parameters
+    ----------
+    alphas : list of alpha folder names. Defaults to ["Alpha1_4", "Alpha1_6"]
+             (full multi-building scope).
+    ratios : optional whitelist of building ratios (e.g. ["1_1_3", "2_1_3"]).
+             If None, every ratio found on disk is used.
 
-    Returns dict with keys:
-        X_train, y_train, X_val, y_val, X_test, y_test,
-        mu, sigma, test_seed, y_future, n_features, seq_length, horizon
+    Each (alpha, ratio, angle) becomes one independent time series.
+    Chronological 70/15/15 split per series, z-score fitted on the combined
+    training data, sliding windows built within each split to avoid
+    cross-boundary samples.
     """
     base = data_dir or POSTPROCESS_DIR
-    alphas = ["Alpha1_4", "Alpha1_6"]
+    if alphas is None:
+        alphas = ["Alpha1_4", "Alpha1_6"]
+    ratio_set = set(ratios) if ratios else None
 
     # ── Phase 1: load every (alpha, ratio, angle) and split ──
     train_segs: List[np.ndarray] = []
@@ -240,6 +247,8 @@ def load_all_buildings(
             if not ratio_dir.is_dir():
                 continue
             ratio = ratio_dir.name
+            if ratio_set is not None and ratio not in ratio_set:
+                continue
             if not (ratio_dir / "Data").exists():
                 continue
             angles = available_angles(alpha, ratio, base)

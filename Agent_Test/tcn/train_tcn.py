@@ -15,11 +15,10 @@ import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import argparse
-from data_loader import load_all_buildings, load_single_building
 from train_utils import (set_seed, DEVICE, make_loaders, train_model,
                          evaluate_model, multistep_forecast,
                          save_metrics_csv, save_training_curves,
-                         save_pred_vs_actual, save_forecasts)
+                         save_pred_vs_actual, save_forecasts, get_data)
 from models.tcn import TCN
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -39,20 +38,14 @@ set_seed(42)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--building", type=str, default=None,
-                        help="alpha/ratio e.g. Alpha1_4/2_1_3 for quick test")
+    parser.add_argument("--scope", type=str, default="Alpha1_4/2_1_3",
+                        help='"Alpha1_4/2_1_3" (Round 1) | "round2" | "all"')
     args = parser.parse_args()
 
     print(f"\n{'='*60}\n  {MODEL_NAME.upper()}\n{'='*60}")
     print(f"Device: {DEVICE}")
 
-    if args.building:
-        alpha, ratio = args.building.split("/")
-        print(f"Quick-test mode: {alpha}/{ratio}")
-        data = load_single_building(alpha=alpha, ratio=ratio,
-                                    seq_length=SEQ_LENGTH, step=STEP, horizon=HORIZON)
-    else:
-        data = load_all_buildings(seq_length=SEQ_LENGTH, step=STEP, horizon=HORIZON)
+    data = get_data(args.scope, SEQ_LENGTH, STEP, HORIZON)
     train_loader, val_loader, test_loader = make_loaders(data, BATCH_SIZE)
 
     model = TCN(

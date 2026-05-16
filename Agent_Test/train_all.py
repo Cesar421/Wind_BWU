@@ -38,10 +38,10 @@ MODELS = [
 ]
 
 
-def run_all(building: str | None):
+def run_all(scope: str):
     print("=" * 70)
-    print("  MASTER TRAINING — Round 1")
-    print(f"  Building scope: {building or 'all (Round 2/3)'}")
+    print("  MASTER TRAINING")
+    print(f"  Scope: {scope}")
     print("=" * 70)
 
     for model_name, script in MODELS:
@@ -52,9 +52,7 @@ def run_all(building: str | None):
         print(f"\n{'─' * 70}")
         print(f"  Running {model_name} ...")
         print(f"{'─' * 70}")
-        cmd = [sys.executable, str(script_path)]
-        if building and building != "all":
-            cmd += ["--building", building]
+        cmd = [sys.executable, str(script_path), "--scope", scope]
         result = subprocess.run(cmd, cwd=str(AGENT_TEST / model_name))
         if result.returncode != 0:
             print(f"  WARNING: {model_name} exited with code {result.returncode}")
@@ -145,7 +143,7 @@ def plot_comparison(rows, plots_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--building", type=str, default="Alpha1_4/2_1_3",
-                        help='alpha/ratio (e.g. Alpha1_4/2_1_3) or "all".')
+    parser.add_argument("--scope", type=str, default="Alpha1_4/2_1_3",
+                        help='"Alpha1_4/2_1_3" (Round 1) | "round2" | "all"')
     args = parser.parse_args()
-    run_all(args.building)
+    run_all(args.scope)

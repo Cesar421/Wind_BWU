@@ -6,8 +6,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT.parent))
-sys.path.insert(0, str(ROOT))
+# IMPORTANT: append (not insert) so pip-installed `xgboost` takes priority
+# over the local folder `Agent_Test/xgboost/`.
+sys.path.append(str(ROOT.parent))
+sys.path.append(str(ROOT))
 
 import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
@@ -23,8 +25,8 @@ np.random.seed(42)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--building", type=str, default=None,
-                        help="alpha/ratio e.g. Alpha1_4/2_1_3 for Round 1")
+    parser.add_argument("--scope", type=str, default="Alpha1_4/2_1_3",
+                        help='"Alpha1_4/2_1_3" (Round 1) | "round2" | "all"')
     args = parser.parse_args()
 
     run_classical(
@@ -35,7 +37,7 @@ def main():
         step=10,
         horizon=1,
         horizons=[1, 10, 50, 100, 500],
-        building=args.building,
+        scope=args.scope,
     )
 
 

@@ -1,7 +1,7 @@
 """
-Round 1 — Multi-horizon forecast analysis
-==========================================
-Loads the saved multi-step forecast .npy files for every Round 1 model,
+Multi-horizon forecast analysis (Round 1 / 2 / 3)
+=================================================
+Loads the saved multi-step forecast .npy files for every trained model,
 computes per-horizon metrics against the ground-truth windward Cp series,
 adds a Naive-Persistence baseline, and writes:
 
@@ -9,11 +9,16 @@ adds a Naive-Persistence baseline, and writes:
     Agent_Test/results/plots/r2_vs_horizon.png
     Agent_Test/results/plots/rmse_vs_horizon.png
 
-Assumption: every model used the SAME building (default Alpha1_4/2_1_3),
-the SAME data_loader, the SAME seq_length and step → so the ground-truth
-y_future is identical for all models, and we can recompute it once.
+Ground truth is rebuilt with the SAME --scope used during training, so the
+y_future / test_seed match exactly the ones the models saw.
+
+Usage:
+    python analyze_horizons.py --scope Alpha1_4/2_1_3   # Round 1
+    python analyze_horizons.py --scope round2            # Round 2
+    python analyze_horizons.py --scope all               # Round 3
 """
 
+import argparse
 import csv
 from pathlib import Path
 from typing import Dict, List
@@ -23,16 +28,13 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from data_loader import load_single_building
+from train_utils import get_data
 
 
 AGENT_TEST = Path(__file__).resolve().parent
 MODELS = ["ridge", "random_forest", "xgboost", "lstm", "gru", "tcn"]
 HORIZONS = [1, 10, 50, 100, 500]
 
-# Round 1 scope — must match what train_all.py was launched with
-ALPHA = "Alpha1_4"
-RATIO = "2_1_3"
 SEQ_LENGTH = 100
 STEP = 10
 HORIZON_TRAIN = 1
@@ -49,11 +51,14 @@ def metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
 
 
 def main():
-    print("Recomputing ground truth (denormalised windward Cp)...")
-    data = load_single_building(
-        alpha=ALPHA, ratio=RATIO,
-        seq_length=SEQ_LENGTH, step=STEP, horizon=HORIZON_TRAIN,
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--scope", type=str, default="Alpha1_4/2_1_3",
+                        help='"Alpha1_4/2_1_3" | "round2" | "all"')
+    args = parser.parse_args()
+    scope = args.scope
+
+    print(f"Recomputing ground truth for scope={scope} ...")
+    data = get_data(scope, SEQ_LENGTH, STEP, HORIZON_TRAIN)
     mu_w = float(data["mu"][0])
     sigma_w = float(data["sigma"][0])
     gt = data["y_future"] * sigma_w + mu_w  # length 500, denormalised
@@ -123,7 +128,7 @@ def main():
             ax.set_yscale("log")
         ax.set_xlabel("Forecast horizon (steps)")
         ax.set_ylabel(ylabel)
-        ax.set_title(f"{ylabel} vs forecast horizon — Round 1 ({ALPHA}/{RATIO})")
+        ax.set_title(f"{ylabel} vs forecast horizon — scope={scope}")
         ax.grid(alpha=0.3, which="both")
         ax.legend(loc="best", fontsize=9)
         fig.tight_layout()

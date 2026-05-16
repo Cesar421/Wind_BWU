@@ -18,21 +18,12 @@ import numpy as np
 
 from data_loader import load_all_buildings, load_single_building
 from train_utils import (compute_metrics, save_metrics_csv,
-                         save_pred_vs_actual, save_forecasts)
+                         save_pred_vs_actual, save_forecasts, get_data)
 
 
 def flatten(X: np.ndarray) -> np.ndarray:
     """(N, seq_length, n_features) → (N, seq_length * n_features)."""
     return X.reshape(X.shape[0], -1).astype(np.float32)
-
-
-def get_data(building: str | None, seq_length: int, step: int, horizon: int):
-    if building:
-        alpha, ratio = building.split("/")
-        print(f"Single-building mode: {alpha}/{ratio}")
-        return load_single_building(alpha=alpha, ratio=ratio,
-                                    seq_length=seq_length, step=step, horizon=horizon)
-    return load_all_buildings(seq_length=seq_length, step=step, horizon=horizon)
 
 
 def classical_multistep_forecast(predict_fn: Callable[[np.ndarray], np.ndarray],
@@ -74,7 +65,7 @@ def run_classical(
     step: int = 10,
     horizon: int = 1,
     horizons: List[int] = (1, 10, 50, 100, 500),
-    building: str | None = None,
+    scope: str = "Alpha1_4/2_1_3",
 ):
     """
     Generic train/evaluate/save pipeline for sklearn-style estimators.
@@ -83,7 +74,7 @@ def run_classical(
     .fit(X, y) and .predict(X).
     """
     print(f"\n{'='*60}\n  {model_name.upper()}\n{'='*60}")
-    data = get_data(building, seq_length, step, horizon)
+    data = get_data(scope, seq_length, step, horizon)
 
     X_train = flatten(data["X_train"])
     X_val   = flatten(data["X_val"])

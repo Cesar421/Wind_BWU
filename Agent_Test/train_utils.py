@@ -17,6 +17,37 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from data_loader import load_all_buildings, load_single_building
+
+
+# ── Round-2 subset (per MODELING_PLAN.md) ────────────────────────────────────
+ROUND2_RATIOS = ["1_1_3", "2_1_3", "3_1_3"]
+ROUND2_ALPHAS = ["Alpha1_4", "Alpha1_6"]
+
+
+def get_data(scope: str, seq_length: int = 100, step: int = 10, horizon: int = 1):
+    """
+    Resolve `scope` to a data dict for training.
+
+    scope values
+    ------------
+        "Alpha1_4/2_1_3"   single-building (Round 1)
+        "round2"           multi-building subset (per MODELING_PLAN.md)
+        "all"              every building in every alpha (Round 3)
+    """
+    if scope == "round2":
+        print(f"Round 2 scope: ratios={ROUND2_RATIOS} × alphas={ROUND2_ALPHAS}")
+        return load_all_buildings(seq_length=seq_length, step=step, horizon=horizon,
+                                  alphas=ROUND2_ALPHAS, ratios=ROUND2_RATIOS)
+    if scope == "all":
+        print("Full-dataset scope: all buildings, all alphas (Round 3)")
+        return load_all_buildings(seq_length=seq_length, step=step, horizon=horizon)
+    # Default: alpha/ratio single-building
+    alpha, ratio = scope.split("/")
+    print(f"Single-building scope: {alpha}/{ratio}")
+    return load_single_building(alpha=alpha, ratio=ratio,
+                                seq_length=seq_length, step=step, horizon=horizon)
+
 
 # ── Reproducibility ──────────────────────────────────────────────────────────
 
