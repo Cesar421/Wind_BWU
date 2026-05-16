@@ -3,3 +3,7 @@ Data/Data_All_The_BDH
 
 # API keys — never commit
 AI_Agent/.env
+
+# Python caches
+__pycache__/
+*.pyc

@@ -1,14 +1,19 @@
 """
-Master Training Script — Runs ALL models sequentially
-=======================================================
-Collects per-model results into a consolidated comparison CSV
-and generates cross-model comparison plots.
+Master Training Script — Runs ALL Round 1 models sequentially.
+==============================================================
+
+Round 1 set (per MODELING_PLAN.md): Ridge, RandomForest, XGBoost, LSTM, GRU, TCN.
+All trained on the SAME single building (default: Alpha1_4 / 2_1_3) to ensure
+a fair comparison: same data, same split, same normalisation, same seed.
 
 Usage:
     cd Agent_Test
-    python train_all.py
+    python train_all.py                              # default building 2_1_3
+    python train_all.py --building Alpha1_4/2_1_3    # explicit
+    python train_all.py --building all               # Round 2/3 (all buildings)
 """
 
+import argparse
 import subprocess
 import sys
 import csv
@@ -22,18 +27,21 @@ import matplotlib.pyplot as plt
 
 AGENT_TEST = Path(__file__).resolve().parent
 
+# Round 1 models, in execution order (fast → slow).
 MODELS = [
-    ("cnn_lstm",    "train_cnn_lstm.py"),
-    ("lstm",        "train_lstm.py"),
-    ("tcn",         "train_tcn.py"),
-    ("transformer", "train_transformer.py"),
-    ("ann",         "train_ann.py"),
+    ("ridge",         "train_ridge.py"),
+    ("random_forest", "train_random_forest.py"),
+    ("xgboost",       "train_xgboost.py"),
+    ("lstm",          "train_lstm.py"),
+    ("gru",           "train_gru.py"),
+    ("tcn",           "train_tcn.py"),
 ]
 
 
-def run_all():
+def run_all(building: str | None):
     print("=" * 70)
-    print("  MASTER TRAINING — Running all models sequentially")
+    print("  MASTER TRAINING — Round 1")
+    print(f"  Building scope: {building or 'all (Round 2/3)'}")
     print("=" * 70)
 
     for model_name, script in MODELS:
@@ -44,10 +52,10 @@ def run_all():
         print(f"\n{'─' * 70}")
         print(f"  Running {model_name} ...")
         print(f"{'─' * 70}")
-        result = subprocess.run(
-            [sys.executable, str(script_path)],
-            cwd=str(AGENT_TEST / model_name),
-        )
+        cmd = [sys.executable, str(script_path)]
+        if building and building != "all":
+            cmd += ["--building", building]
+        result = subprocess.run(cmd, cwd=str(AGENT_TEST / model_name))
         if result.returncode != 0:
             print(f"  WARNING: {model_name} exited with code {result.returncode}")
 
@@ -136,4 +144,8 @@ def plot_comparison(rows, plots_dir):
 
 
 if __name__ == "__main__":
-    run_all()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--building", type=str, default="Alpha1_4/2_1_3",
+                        help='alpha/ratio (e.g. Alpha1_4/2_1_3) or "all".')
+    args = parser.parse_args()
+    run_all(args.building)
