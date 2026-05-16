@@ -1,0 +1,45 @@
+en este prompt "@wind-cp-forecaster
+
+ENVIRONMENT: Use the ML_Cesar conda environment for ALL terminal commands:
+  conda activate ML_Cesar; $env:KMP_DUPLICATE_LIB_OK="TRUE"; python <script>
+GPU: NVIDIA RTX A4000 (16 GB VRAM) — CUDA 11.8 — torch.cuda.is_available() = True
+DO NOT fall back to CPU. Use device = torch.device("cuda") for all models and tensors.
+Use pin_memory=True and num_workers=0 in DataLoaders.
+
+---
+
+Read and analyze all 7 papers in the Wind pressure coefficients/ folder. For each paper:
+1. Extract the model architecture(s), input features, loss functions, hyperparameters, and evaluation metrics
+2. Save a structured summary to Agent_Test/paper_summaries.md
+
+Create Agent_Test/data_loader.py as a shared data loading module that:
+- Loads ALL .npy facade data (windward, leeward, sideleft, sideright) from both Alpha1_4 and Alpha1_6 with all building configurations
+- Applies z-score normalization (fit on train split only, save scaler params for inverse transform)
+- Returns sliding-window PyTorch Datasets with chronological 70/15/15 splits
+
+Then implement, train, and evaluate ALL models found across these papers:
+
+CREATE A SEPARATE FOLDER for each model under Agent_Test/<model_name>/ containing:
+- models/<model_name>.py — Model architecture class
+- train_<model_name>.py — Training, evaluation, and forecasting script
+- checkpoints/ — Saved model weights (.pt files)
+- results/model_comparison.csv — Per-model metrics
+- results/plots/ — Training curves and prediction vs actual visualizations
+- results/forecasts/ — Multi-step forecast arrays (.npy files)
+
+For each model:
+- Import the shared data_loader.py (do NOT duplicate data loading code)
+- Move model and all tensors to device = torch.device("cuda")
+- Apply early stopping (patience 15) and ReduceLROnPlateau scheduling
+- Calculate RMSE, MAE, R², MAPE, and directional accuracy on the test set
+- Log training time (seconds) and parameter count
+- Generate multi-step predictions (1, 10, 50, 100, 500 steps ahead)
+- Save training curves and prediction vs actual plots
+
+Create Agent_Test/train_all.py that:
+- Runs all model training scripts sequentially via subprocess using: conda activate ML_Cesar; $env:KMP_DUPLICATE_LIB_OK="TRUE"; python <script>
+- Collects metrics from each <model_name>/results/
+- Generates a consolidated Agent_Test/results/model_comparison.csv
+- Creates cross-model comparison plots in Agent_Test/results/plots/
+
+Use float32, sliding-window step ≥ 10, seed 42, PyTorch on CUDA." quiero solo entrenar con Alpha 1_4 / 2_1_3 time series para esta primera ronda de entrenamiento quiero saber si los modelos funcionan y tener una idea de su desempeno
