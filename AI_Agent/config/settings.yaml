@@ -19,10 +19,12 @@ data:
   # Faces to use as input features (windward, leeward, sideleft, sideright)
   faces: ["windward", "leeward", "sideleft", "sideright"]
   # Default alpha profile and building ratio for single-building training
+  # --- ROUND 1 (smoke test): Alpha1_4 / 2_1_3 only ---
   default_alpha: "Alpha1_4"
-  default_building_ratio: "1_1_3"
+  default_building_ratio: "2_1_3"
   # Use ALL buildings across all alphas for training
-  use_all_buildings: true
+  # Round 1 = false (single building). Round 2/3 = true.
+  use_all_buildings: false
   # Step/stride for sliding window when loading all buildings (reduces memory)
   sequence_step: 10
   # Available alpha profiles
@@ -133,28 +135,35 @@ modeler:
     timeout_per_trial: 600  # seconds
   
   # Models to always include (seed models)
+  # Curated for thesis scope: baselines + recurrent + convolutional + transformer.
+  # Removed: NBEATS (no covariate support), DeepAR (probabilistic, out of scope),
+  # WaveNet (redundant with TCN), Informer (redundant with TFT/PatchTST).
   seed_models:
-    - name: "TemporalFusionTransformer"
+    # --- Classical baselines (CPU, fast) ---
+    - name: "RidgeRegression"
       priority: 1
-      category: "transformer"
-    - name: "Informer"
+      category: "linear"
+    - name: "RandomForest"
       priority: 2
-      category: "transformer"
-    - name: "NBEATS"
+      category: "tree_ensemble"
+    - name: "XGBoostTimeSeries"
       priority: 3
-      category: "probabilistic"
-    - name: "TemporalConvNet"
+      category: "gradient_boosting"
+    # --- Recurrent deep learning ---
+    - name: "LSTM"
       priority: 4
-      category: "convolutional"
-    - name: "DeepAR"
+      category: "recurrent"
+    - name: "GRU"
       priority: 5
-      category: "probabilistic"
-    - name: "WaveNet"
+      category: "recurrent"
+    # --- Convolutional deep learning ---
+    - name: "TemporalConvNet"
       priority: 6
       category: "convolutional"
-    - name: "XGBoostTimeSeries"
+    # --- Transformer family (advanced, only after recurrent/conv work) ---
+    - name: "TemporalFusionTransformer"
       priority: 7
-      category: "gradient_boosting"
+      category: "transformer"
     - name: "PatchTST"
       priority: 8
       category: "transformer"
