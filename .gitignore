@@ -7,3 +7,15 @@ AI_Agent/.env
 # Python caches
 __pycache__/
 *.pyc
+
+# Model checkpoints (too large for git)
+*.pt
+*.pth
+
+# Large prediction arrays (>50 MB)
+**/results/*_preds.npy
+**/results/*_trues.npy
+
+# Local logs
+*.log
+
