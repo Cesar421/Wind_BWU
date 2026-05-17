@@ -1,2 +1,2 @@
 model,rmse,mae,r2,mape,directional_accuracy,parameters,train_time_s,epochs_run,best_val_loss
-xgboost,0.022324,0.017142,0.997461,28.971806,83.387439,500,23.5,1,0.00249062
+xgboost,0.024242,0.018169,0.997101,46.867218,81.956199,500,69.0,1,0.00304593

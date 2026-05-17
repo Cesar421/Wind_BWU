@@ -1,2 +1,2 @@
 model,rmse,mae,r2,mape,directional_accuracy,parameters,train_time_s,epochs_run,best_val_loss
-random_forest,0.022847,0.017765,0.997341,27.806054,82.642974,200,1464.0,1,0.0026458
+random_forest,0.024111,0.018465,0.997132,34.205999,81.452169,200,7262.2,1,0.00280995
