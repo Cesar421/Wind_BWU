@@ -5,6 +5,170 @@ wind-tunnel pressure-coefficient ($C_p$) time series from the TPU BDH benchmark.
 
 ---
 
+## 0. Executive overview
+
+### 0.1 Motivation and objective
+
+Wind-tunnel pressure-coefficient ($C_p$) time series govern the design of
+tall-building cladding, fatigue life of facade attachments, and gust-effect
+factors in structural codes. Real-time / look-ahead $C_p$ forecasting would
+enable adaptive damping, gust early-warning, and reduced reliance on long
+wind-tunnel campaigns. The **central question** of this study is:
+
+> *Given 100 ms of past windward $C_p$ + velocity context, can a learning
+>  model produce useful $C_p$ forecasts at lead times from 1 ms to 500 ms,
+>  and what is the limiting factor as the horizon grows?*
+
+We answer this in three layers: (i) a fair multi-model baseline benchmark
+(Round 1 → 2 → 3, single-step + autoregressive rollout); (ii) an
+intervention on the training objective (direct multi-step) with a second
+architecture for redundancy; (iii) a diagnostic spectral analysis that
+reframes what "winning" means.
+
+### 0.2 Data and protocol — one paragraph
+
+We use the **TPU BDH** benchmark: pressure-coefficient time series sampled at
+**1 000 Hz** on tall-building models in a boundary-layer wind tunnel,
+covering 20 building aspect ratios × multiple yaw angles × 2 terrain-roughness
+profiles ($\alpha = 1/4$ and $1/6$). Each series has 32 768 samples
+(~32.8 s). Inputs are 100-sample (100 ms) windows of 4 face-averaged $C_p$
+channels (windward / leeward / side-left / side-right). Three nested rounds
+of training scope: **R1** (one building, sanity check), **R2** (5 geometries
+× 2 roughness, 85 series), **R3** (universal: 340 series). Identical
+train/val/test (70/15/15), seed, optimiser, batch, hardware across all
+models so that differences are attributable to the model.
+
+### 0.3 Models — what we trained and why
+
+| Family | Model | Paradigm | What it is testing |
+|--------|-------|----------|--------------------|
+| **A. Autoregressive baselines** | Naive persistence | $\hat y_{t+1}=y_t$ | Lower bound any non-trivial model must beat |
+| | Ridge regression | Linear | Linear ceiling, sanity check |
+| | Random Forest | Trees | Non-linearity without temporal order |
+| | XGBoost | Boosted trees | Best classical baseline |
+| | ANN (MLP) | Feed-forward | Needs *state*? Or does a flat MLP suffice? |
+| | LSTM (autoreg) | Recurrent gated | Explicit memory for short context |
+| | GRU (autoreg) | Recurrent gated | Lighter LSTM variant |
+| | TCN (autoreg) | Dilated conv | Long receptive field without recurrence |
+| | CNN-LSTM (autoreg) | Hybrid | Local features + memory |
+| | Transformer (autoreg) | Self-attention | Global context |
+| **B. Direct multi-step** | LSTM-direct (B.4) | LSTM(128) + `Linear(128, 500)` | Can changing only the **loss objective** fix the rollout collapse? |
+| | PatchTST direct (C.6) | Patch + 3-layer Transformer encoder | Does a second, very different architecture reach the same ceiling? |
+
+**Family A** uses **autoregressive rollout**: train to predict one step ahead,
+then feed the prediction back to forecast horizon $h>1$. Cheap to train but
+exposes the model to compounding error.
+
+**Family B** uses **direct multi-step**: predict the full 500-step output
+vector in one forward pass, MSE over the whole vector. More expensive head
+(wider final linear layer), but no compounding.
+
+### 0.4 Methodology — beyond per-step error
+
+- **Section 5** (single-step) and **6.a** (autoregressive multi-horizon):
+  RMSE / MAE / R² / MAPE per horizon, per round, per model.
+- **Section 6.b** (B.4): Direct multi-step training as an intervention on the
+  loss objective — keep the architecture, change the training target.
+- **Section 6.b.2 — B.5** (Diebold-Mariano test): a paired statistical test
+  on squared-error sequences with HAC autocorrelation correction. Answers
+  "is the RMSE gap between models *statistically* real or sampling noise?"
+- **Section 6.c**: Replicate B.4 with a Transformer-based architecture
+  (PatchTST) for architectural redundancy.
+- **Section 6.d — F** (spectral analysis): Welch PSD of true signal,
+  predictions, and residuals. Answers "what frequencies do the models
+  actually reproduce?".
+- **Future — N / M**: spectral fidelity metrics (PSD L² distance, total
+  power ratio, peak-factor MAE) and distributional forecasting (quantile
+  regression with pinball loss).
+
+### 0.5 Headline results
+
+**Single-step ($h=1$) is essentially solved.** Every reasonable model (R3)
+reaches RMSE ≈ 0.04 and R² > 0.99. Differences here are not informative.
+
+**Autoregressive rollout to $h = 500$ collapses catastrophically** for
+recurrent and convolutional deep models (LSTM R² = −6.18, TCN R² ≈ −20),
+but classical baselines (naive, Ridge, XGBoost) remain near R² ≈ 0.97
+because they cannot compound large errors. **Scaling the dataset (R1 → R3)
+does not fix this** — the collapse is structural.
+
+**Direct multi-step (B.4 + C.6) restores variance-tracking.** Identical LSTM
+backbone trained with `Linear(128 → 500)` head + full-vector MSE achieves
+RMSE 0.179 / R² 0.84 at $h = 500$. PatchTST under the same recipe lands at
+RMSE 0.175 / R² 0.85. **Two radically different architectures collapse to
+the same ceiling.**
+
+**Diebold-Mariano (B.5) reframes the ranking.** At $h = 500$: naive vs.
+XGBoost is a statistical tie ($p = 0.20$); naive beats every deep
+autoregressive model significantly ($p < 10^{-3}$). The fair comparison at
+long horizons is therefore not *model A vs. model B* but **any model vs.
+persistence**.
+
+**Spectral analysis (F) reframes again — and is the most important finding.**
+At $h = 500$, the predicted PSD is **60–75× smaller than the true PSD at
+every frequency** between 4 Hz and 500 Hz. The residual PSD overlaps the
+true-signal PSD exactly. The models are not predicting turbulent
+fluctuations at all — they output the **conditional mean** within each
+forecast window. The RMSE 0.175 is exactly the standard deviation of the
+collapsed high-frequency component. **R² = 0.85 is therefore misleading for
+wind-engineering applications** (fatigue, peak factor, gust-effect factor)
+that depend on the spectrum.
+
+### 0.6 Generated artefacts
+
+**Per-round CSVs** (`results/`):
+- `model_comparison_round{1,2,3}.csv`: single-step metrics
+- `multi_horizon_metrics_round{1,2,3}.csv`: per-horizon autoregressive metrics
+- `lstm_direct_metrics.csv`: direct multi-step (B.4)
+- `patchtst_metrics.csv`: PatchTST direct (C.6)
+- `dm_test_round3.csv`, `dm_test_all_rounds.csv`: Diebold-Mariano p-values
+- `spectral_metrics.csv`: total power and band-limited power per model
+
+**Plots** (`results/plots_round{1,2,3}/` and `results/plots_cross_round/`):
+- Per-round: bar charts of RMSE/R² and RMSE-vs-horizon for each model
+- Cross-round: `cross_round_horizon_<model>.png` (5 files, one per model
+  family — shows how each model scales R1 → R2 → R3)
+- `cross_round_rmse_h1.png`: single-step ranking across rounds
+- `direct_vs_autoreg_h500.png`: overlay of autoregressive baselines vs
+  LSTM-direct vs PatchTST at $h = 500$ (linear + log)
+- `psd_residuals.png`: Welch PSD of true / pred / residual for both
+  direct-multi-step models — the visual proof of spectral collapse
+
+**Source code** (key files in `Agent_Test/`):
+- `<model>/models/<model>.py` and `<model>/train_<model>.py` for each of
+  ANN / LSTM / GRU / TCN / CNN-LSTM / Transformer (autoreg) and
+  LSTM-direct / PatchTST (direct).
+- `train_utils.py`: shared `get_data`, `make_loaders`, `train_model`,
+  `compute_metrics`, `set_seed` — guarantees identical training conditions.
+- `data_loader.py`: scope dispatcher (R1 / R2 / R3) + windowing +
+  normalisation.
+- `infer_lstm_direct.py`: post-crash inference recovery (B.4 TDR survival).
+- `dm_test.py`: Diebold-Mariano with HAC variance.
+- `plot_direct_vs_autoreg.py`: consolidated direct-vs-autoreg plot.
+- `spectral_analysis.py`: Welch PSD pipeline.
+
+### 0.7 What this work *changes* for downstream practitioners
+
+1. **Do not use teacher-forced single-step training when the deployment task
+   is long-horizon forecasting.** It looks great at $h = 1$ and silently
+   diverges at $h = 500$.
+2. **Always report a statistical test** alongside RMSE on long horizons.
+   Half the published "X beats Y" claims would not survive a DM test.
+3. **R² and RMSE are insufficient metrics for wind-engineering forecasts.**
+   A model can score R² = 0.85 with predictions that have 60× less spectral
+   power than the true signal — useless for fatigue or peak-factor
+   computation. Add at least a **total power ratio** or **PSD L² distance**.
+4. **MSE training collapses to the conditional mean on chaotic signals.**
+   The next modelling step is **distributional / generative** forecasting
+   (quantile regression with pinball loss, diffusion, conditional GAN,
+   normalising flow) that can match the conditional *distribution* and
+   therefore the spectrum.
+
+The rest of this document records the experiments, numbers, and analyses
+that support each of the four points above.
+
+---
+
 ## 1. Experimental Protocol (identical across all rounds)
 
 | Setting | Value |
