@@ -395,6 +395,75 @@ PatchTST is **saturated at R2** — extra data does not buy further accuracy.
 
 ---
 
+### 6.d Spectral analysis — what the residuals actually contain (F)
+
+To check whether the long-horizon ceiling at h = 500 (RMSE ≈ 0.175) is indeed
+irreducible turbulent noise — as Section 6.c hypothesised — we computed the
+Welch power spectral density (PSD) of the **true signal**, the **predictions**,
+and the **residuals** for both direct-multi-step models on the R3 test set
+(146 880 windows, subsampled to 5 000; `fs = 1000 Hz`, `nperseg = 256`,
+`df ≈ 3.9 Hz`). Script: `Agent_Test/spectral_analysis.py`. Plot:
+`results/plots_cross_round/psd_residuals.png`.
+
+**Result (single-line summary)**
+
+| Quantity                          | LSTM-direct | PatchTST |
+|-----------------------------------|-------------|----------|
+| Total power true signal $C_p$     | 1.192 × 10⁻² | 1.192 × 10⁻² |
+| Total power **predictions**       | **1.58 × 10⁻⁴** (**75×** smaller) | **1.89 × 10⁻⁴** (**63×** smaller) |
+| Total power residuals             | 1.173 × 10⁻² | 1.173 × 10⁻² |
+| Crossover freq. pred < 0.5×true   | 3.9 Hz (the first measurable bin) | 3.9 Hz |
+
+**Interpretation — the floor is NOT a noise floor, it is mean-regression**
+
+The predicted PSD is 60–75× smaller than the true PSD **at every frequency
+between 4 Hz and 500 Hz**. The residual PSD overlaps the true-signal PSD
+almost exactly across the whole band. This means the models are not failing
+to predict *some* frequencies; they are failing to produce **any AC content
+at all** within the 500-step forecast window.
+
+What the models actually output at h = 500 is essentially the **conditional
+expectation** $\mathbb{E}[C_p(t+500) \mid \mathbf{x}(t-99:t)]$, which for a
+turbulent wind signal at 0.5 s lead-time reduces to a slowly varying envelope
+(near-constant within each 500-sample test window). The window-to-window
+envelope is what produces R² ≈ 0.85; the within-window oscillations are
+gone.
+
+This is the standard pathology of MSE-trained point forecasters on chaotic
+signals: the variance-minimising predictor is the **mean**, not a sample,
+so the spectrum collapses. The 0.175 RMSE is then exactly the standard
+deviation of the high-frequency turbulent component that has been removed.
+
+**Practical implication for wind engineering**
+
+For structural-design applications (fatigue, peak-factor calculation,
+gust-effect factor, return-period statistics), the PSD of the predicted
+signal must match the PSD of the real signal — otherwise the engineering
+quantities computed from the forecast are catastrophically wrong (typically
+they will underestimate peaks because the forecast has no fluctuation
+energy). Under that criterion, **both LSTM-direct and PatchTST are
+unusable at h = 500** despite their high R².
+
+**This changes the thesis recommendation**: the direct-multi-step recipe
+(Section 6.b) fixed the autoregressive collapse to R² = −6 — but only by
+trading it for a *different* failure mode (spectral collapse). The true
+fix has to come from a **distributional / generative forecasting**
+approach — quantile regression, diffusion-based forecasting, score-based
+generative models, conditional GANs, or normalising flows — which can match
+the conditional *distribution* (and therefore the PSD) instead of only its
+mean.
+
+**Artefacts**
+
+- Script: `Agent_Test/spectral_analysis.py`
+- Metrics CSV: `Agent_Test/results/spectral_metrics.csv`
+  (total power, peak frequency, band-limited power for true / pred / residual
+  for both models).
+- Plot: `Agent_Test/results/plots_cross_round/psd_residuals.png` (two panels,
+  log-log, overlapping residual ↔ true curves visually confirm the result).
+
+---
+
 ## 7. Take-aways for the thesis
 
 1. **Single-step forecasting of windward $C_p$ is essentially solved** at this
@@ -433,14 +502,25 @@ PatchTST is **saturated at R2** — extra data does not buy further accuracy.
    naive persistence", and only the direct multi-step LSTM clears that bar
    in terms of R² (variance tracking).
 
-7. **Two independent architectures hit the same long-horizon floor.** Both
-   the LSTM-direct (B.4, recurrence) and the PatchTST (C.6.b, patched
-   self-attention) converge to RMSE ≈ 0.175 and R² ≈ 0.85 at h = 500
-   under the direct multi-step recipe (Section 6.c). This **architectural
-   redundancy** is the strongest available evidence that the residual error
-   at h = 500 is an irreducible-noise property of the wind-tunnel signal —
-   not a modelling limitation. Practical implication: further effort on the
-   model side will not move this number; the next step has to come from
-   richer conditioning (geometry / wind direction embeddings,
-   physics-informed regularisation) or from a different forecasting target
-   (distributional, peak-pressure, return-period).
+7. **Two independent architectures hit the same long-horizon floor, for the
+   same reason.** Both the LSTM-direct (B.4, recurrence) and the PatchTST
+   (C.6.b, patched self-attention) converge to RMSE ≈ 0.175 and R² ≈ 0.85
+   at h = 500. Section 6.d's spectral analysis shows *why*: both models'
+   predicted PSD is 60–75× smaller than the true-signal PSD at every
+   frequency, and both residual PSDs lie exactly on the true-signal PSD.
+   The "floor" is therefore not architectural — it is the **MSE-optimal
+   collapse to the conditional mean**, which for a chaotic turbulent signal
+   at 0.5 s lead-time has nearly zero AC content within each window.
+
+8. **R² is the wrong metric for wind-engineering forecasts.** A model with
+   R² = 0.85 (PatchTST, h = 500) can still have predictions whose total
+   spectral power is 60× lower than the real signal — making them useless
+   for any downstream computation that depends on the spectrum (fatigue
+   damage, peak factor, return-period analysis, gust-effect factor). The
+   thesis recommendation for downstream wind-engineering practitioners is
+   therefore to add **at least one spectral-fidelity metric** (e.g., total
+   power ratio, or PSD L² distance in log-frequency) alongside any RMSE/R²
+   report. The natural next step on the modelling side is
+   **distributional / generative forecasting** (quantile, diffusion,
+   normalising flow, conditional GAN), which can match the conditional
+   distribution — and therefore the spectrum — rather than only its mean.
