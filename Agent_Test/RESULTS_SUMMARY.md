@@ -645,40 +645,41 @@ of the original record. The implementation, in a separate folder
 `Agent_Test/` untouched, was delegated to the custom `wind-cp-forecaster`
 sub-agent.
 
-**Setup (R2 scope, 190 k face-series).** 122 528-parameter MLP encoder +
-4 × Dense(128) decoder, Huber loss, Adam lr = 1e-3, batch 128, max 1 000
-epochs with patience 50. Trained on R2 scope (3 ratios × 2 alphas, all
-angles, all 4 faces); 340 held-out test series. Z-score normalisation per
-series. PSD computed identically to 6.d (`fs = 1 000 Hz`, `nperseg = 256`,
-hann, density scaling).
+**Setup (R2 scope, 190 k face-series; R3 scope, full corpus 1 360 series).**
+122 528-parameter MLP encoder + 4 × Dense(128) decoder, Huber loss, Adam
+lr = 1e-3, batch 128, max 1 000 epochs with patience 50. R2 = 3 ratios × 2
+alphas; R3 = all 20 (alpha, ratio) combinations × all angles × all 4 faces.
+Z-score normalisation per series. PSD computed identically to 6.d
+(`fs = 1 000 Hz`, `nperseg = 256`, hann, density scaling).
 
 **Headline result — spectral fidelity recovered by ≈ 50 ×.**
 
-| Model | Task | Loss | Total power ratio $P_{pred}/P_{true}$ | PSD log-L² | R² (held-out) |
-|-------|------|------|--------------------------------------:|-----------:|--------------:|
-| LSTM-direct (Agent_Test, R3) | Forecasting, h = 500 | MSE | **0.013** | (very large) | 0.85 |
-| PatchTST (Agent_Test, R3) | Forecasting, h = 500 | MSE | **0.016** | (very large) | 0.85 |
-| **WPTSE-Net (Agent_Papers, R2)** | **Synthesis** | **Huber + stats encoder** | **0.818** | **0.578** | **0.893** (slice) |
+| Model | Scope | Task | Loss | $P_{pred}/P_{true}$ | PSD log-L² | R² (held-out) | Train time |
+|-------|-------|------|------|--------------------:|-----------:|--------------:|-----------:|
+| LSTM-direct (Agent_Test) | R3 | Forecasting, h = 500 | MSE | **0.013** | (very large) | 0.85 | ~45 min |
+| PatchTST (Agent_Test) | R3 | Forecasting, h = 500 | MSE | **0.016** | (very large) | 0.85 | 71 min |
+| WPTSE-Net (Agent_Papers) | R2 | Synthesis | Huber + stats encoder | **0.818** | **0.578** | **0.893** | 13 min |
+| **WPTSE-Net (Agent_Papers)** | **R3** | **Synthesis** | **Huber + stats encoder** | **0.786** | **0.547** | **0.893** | **32 min** |
 
-The synthesis model recovers **≈ 82 % of the true total power**, against
-≈ 1.5 % for the forecasters — a **50-fold improvement in spectral fidelity**
-without changing the upstream data. R² on the synthesised slice (0.893) is
-comparable to the forecasters' R², so the gain is not bought at the cost of
-sample-wise accuracy: it is a free lunch from changing the **task** (and
-therefore the **inductive bias of the loss**) from MSE point-prediction to
-distribution / spectrum matching.
+R3 confirms R2: with 4 × more (and more diverse) data, the synthesis model
+still recovers **≈ 79 % of the true total power**, against ≈ 1.5 % for the
+forecasters — a **50-fold improvement in spectral fidelity** maintained
+across the full corpus. R² on the synthesised slice is identical at both
+scopes (0.893), so the model is already saturated for this architecture —
+gains would now come from increasing capacity, not data.
 
 **Moment-by-moment statistical accuracy of WPTSE-Net**
 
-| Moment | Relative error |
-|--------|---------------:|
-| Mean   | 4.8 × 10⁻⁴ |
-| Variance | 0.110 |
-| Skewness | 0.332 |
-| Kurtosis | 0.036 |
+| Moment | R2 rel. error | R3 rel. error |
+|--------|--------------:|--------------:|
+| Mean   | 4.8 × 10⁻⁴ | 6.9 × 10⁻³ |
+| Variance | 0.110 | 0.139 |
+| Skewness | 0.332 | **0.232** |
+| Kurtosis | 0.036 | 0.036 |
 
-Variance is recovered within 11 %, kurtosis within 4 % — both critical for
-non-Gaussian peak-pressure prediction in design codes.
+Skewness improves with R3 (more diverse facade orientations seen during
+training); variance and kurtosis remain in the same regime. Both are
+critical for non-Gaussian peak-pressure prediction in design codes.
 
 **Why this matters for the thesis narrative**
 
@@ -710,20 +711,16 @@ in `Agent_Papers/wptse_net/README.md`)
 **Artefacts**
 
 - Code: `Agent_Papers/wptse_net/{models/wptse_net.py, train_wptse_net.py}`
-- Checkpoint: `Agent_Papers/wptse_net/checkpoints/wptse_net_best_r2.pt`
-- Metrics: `Agent_Papers/wptse_net/results/metrics_r2.csv`,
-  `per_series_metrics_r2.csv`
-- Plots: `Agent_Papers/wptse_net/results/plots/{training_curve_r2,
-  timeseries_comparison_r2, psd_comparison_r2}.png`
-- Generated sample: `Agent_Papers/wptse_net/results/generated/{sample_gen_r2,
-  sample_true_r2}.npy`
+- Checkpoints: `Agent_Papers/wptse_net/checkpoints/wptse_net_best_{r2,r3}.pt`
+- Metrics: `Agent_Papers/wptse_net/results/metrics_{r2,r3}.csv`,
+  `per_series_metrics_{r2,r3}.csv`
+- Plots: `Agent_Papers/wptse_net/results/plots/{training_curve,
+  timeseries_comparison, psd_comparison}_{r2,r3}.png`
+- Generated samples: `Agent_Papers/wptse_net/results/generated/{sample_gen,
+  sample_true}_{r2,r3}.npy`
 - Literature analysis: `Agent_Papers/paper_summaries.md` (7 papers; 1
   recommended for implementation, 6 discarded with justification).
 - README: `Agent_Papers/wptse_net/README.md`.
-
-> Note: an R3 (full-corpus) run is queued; when it completes the table above
-> will be extended with WPTSE-Net@R3 figures. Expected: marginal gain on
-> already-strong spectral metrics, since R2 saturates the small model.
 
 ---
 
