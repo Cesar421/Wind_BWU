@@ -19,3 +19,6 @@ __pycache__/
 # Local logs
 *.log
 
+# Agent_Papers: derived PDF text dumps (re-extractable, copyright-safe)
+Agent_Papers/_extracted/
+

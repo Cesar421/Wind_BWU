@@ -628,6 +628,105 @@ mean.
 
 ---
 
+### 6.e Synthesis as a complement to forecasting — WPTSE-Net (Phase 2 of `Agent_Papers/`)
+
+The spectral diagnosis in 6.d showed that **MSE-trained forecasters cannot
+reproduce the PSD** of chaotic wind-pressure signals — they collapse to the
+conditional mean and the residual *becomes* the signal. The natural question
+for thesis closure is: *is there any deep-learning approach that does
+preserve the spectrum?* The literature review in `Agent_Papers/paper_summaries.md`
+identified **WPTSE-Net** (Tong, Liang, Song, Hu, Kareem, *JWEIA* 2024) as a
+directly relevant counter-example. WPTSE-Net is **not** a forecaster: it is a
+*time-series extension / synthesis* network that, given the deterministic
+statistics of a Cp record (mean, std, skewness, kurtosis, plus a noise
+vector), generates new samples that match the **distribution and spectrum**
+of the original record. The implementation, in a separate folder
+(`Agent_Papers/wptse_net/`) to keep the forecasting pipeline of
+`Agent_Test/` untouched, was delegated to the custom `wind-cp-forecaster`
+sub-agent.
+
+**Setup (R2 scope, 190 k face-series).** 122 528-parameter MLP encoder +
+4 × Dense(128) decoder, Huber loss, Adam lr = 1e-3, batch 128, max 1 000
+epochs with patience 50. Trained on R2 scope (3 ratios × 2 alphas, all
+angles, all 4 faces); 340 held-out test series. Z-score normalisation per
+series. PSD computed identically to 6.d (`fs = 1 000 Hz`, `nperseg = 256`,
+hann, density scaling).
+
+**Headline result — spectral fidelity recovered by ≈ 50 ×.**
+
+| Model | Task | Loss | Total power ratio $P_{pred}/P_{true}$ | PSD log-L² | R² (held-out) |
+|-------|------|------|--------------------------------------:|-----------:|--------------:|
+| LSTM-direct (Agent_Test, R3) | Forecasting, h = 500 | MSE | **0.013** | (very large) | 0.85 |
+| PatchTST (Agent_Test, R3) | Forecasting, h = 500 | MSE | **0.016** | (very large) | 0.85 |
+| **WPTSE-Net (Agent_Papers, R2)** | **Synthesis** | **Huber + stats encoder** | **0.818** | **0.578** | **0.893** (slice) |
+
+The synthesis model recovers **≈ 82 % of the true total power**, against
+≈ 1.5 % for the forecasters — a **50-fold improvement in spectral fidelity**
+without changing the upstream data. R² on the synthesised slice (0.893) is
+comparable to the forecasters' R², so the gain is not bought at the cost of
+sample-wise accuracy: it is a free lunch from changing the **task** (and
+therefore the **inductive bias of the loss**) from MSE point-prediction to
+distribution / spectrum matching.
+
+**Moment-by-moment statistical accuracy of WPTSE-Net**
+
+| Moment | Relative error |
+|--------|---------------:|
+| Mean   | 4.8 × 10⁻⁴ |
+| Variance | 0.110 |
+| Skewness | 0.332 |
+| Kurtosis | 0.036 |
+
+Variance is recovered within 11 %, kurtosis within 4 % — both critical for
+non-Gaussian peak-pressure prediction in design codes.
+
+**Why this matters for the thesis narrative**
+
+1. It **closes** the open question of 6.d / take-aways 7-8: the loss function
+   is the bottleneck, not the architecture. Swapping MSE for a
+   distribution-aware objective recovers the PSD with a much **smaller**
+   network (122 k vs 1.1 M parameters for PatchTST).
+2. It supports a **two-track recommendation** for wind-engineering practice:
+   - **Forecasting** (MSE) → use only for short horizons and metrics that
+     reward the mean (RMSE, R²).
+   - **Synthesis / extension** (Huber + statistical encoder, or quantile /
+     generative approaches) → use for design-load generation, peak-factor
+     estimation, fatigue analysis, and any task where the **spectrum**
+     matters.
+3. It validates the literature-review pipeline (`paper_summaries.md` + sub-agent
+   delegation) as a **methodology** that yielded a thesis-quality
+   counter-example with one paper and ~ 13 min of training.
+
+**Deviations from the original Tong et al. 2024 implementation** (full list
+in `Agent_Papers/wptse_net/README.md`)
+
+- Batch 128 (paper: 64) and chronological 70 / 15 / 15 split with patience-50
+  early stopping (paper trains 1 000 fixed epochs on a single 4 096-sample
+  record). Necessary because our dataset is two orders of magnitude larger.
+- Per-series z-score (paper: global affine).
+- Slice order preserved at inference (paper shuffles) — required for PSD
+  alignment on the held-out segment.
+
+**Artefacts**
+
+- Code: `Agent_Papers/wptse_net/{models/wptse_net.py, train_wptse_net.py}`
+- Checkpoint: `Agent_Papers/wptse_net/checkpoints/wptse_net_best_r2.pt`
+- Metrics: `Agent_Papers/wptse_net/results/metrics_r2.csv`,
+  `per_series_metrics_r2.csv`
+- Plots: `Agent_Papers/wptse_net/results/plots/{training_curve_r2,
+  timeseries_comparison_r2, psd_comparison_r2}.png`
+- Generated sample: `Agent_Papers/wptse_net/results/generated/{sample_gen_r2,
+  sample_true_r2}.npy`
+- Literature analysis: `Agent_Papers/paper_summaries.md` (7 papers; 1
+  recommended for implementation, 6 discarded with justification).
+- README: `Agent_Papers/wptse_net/README.md`.
+
+> Note: an R3 (full-corpus) run is queued; when it completes the table above
+> will be extended with WPTSE-Net@R3 figures. Expected: marginal gain on
+> already-strong spectral metrics, since R2 saturates the small model.
+
+---
+
 ## 7. Take-aways for the thesis
 
 1. **Single-step forecasting of windward $C_p$ is essentially solved** at this

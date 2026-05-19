@@ -1,0 +1,2 @@
+model,scope,n_params,train_time_s,epochs_run,best_val_huber,rmse_slice,mae_slice,r2_slice,n_test_series,psd_total_power_ratio,psd_log_l2,mean_rel_err,var_rel_err,skew_rel_err,kurt_rel_err
+WPTSE-Net,round2,122528,779.0,144,0.05053,0.317661,0.237607,0.893163,340,0.81784,0.577492,0.000476,0.109932,0.331567,0.035462
