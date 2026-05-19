@@ -1,10 +1,15 @@
 """
-Plot RMSE-vs-horizon comparison: Direct multi-step LSTM vs autoregressive models.
+Plot RMSE-vs-horizon comparison:
+  - Autoregressive models (naive, XGBoost, LSTM, TCN)
+  - Direct multi-step LSTM (B.4)
+  - PatchTST direct multi-step (C.6.b, R3)
 
 Pulls per-horizon RMSE from:
   - results/multi_horizon_metrics_round3.csv  (autoregressive models)
   - results/lstm_direct_metrics.csv           (direct LSTM, inference rows)
   - results/lstm_direct_h500_rmse_curve.npy   (full 500-step curve for direct)
+  - results/patchtst_metrics.csv              (PatchTST R3 rows)
+  - results/patchtst_h500_r3_rmse_curve.npy   (full 500-step curve)
 
 Saves: results/plots_cross_round/direct_vs_autoreg_h500.png
 """
@@ -42,15 +47,24 @@ direct = direct[(direct["model"] == "lstm_direct_h500") & (direct["source"] == "
 print(f"Direct rows for plot: {len(direct)}  horizons={sorted(direct['horizon'].tolist())}")
 rmse_curve = np.load(RES / "lstm_direct_h500_rmse_curve.npy")  # (500,)
 
+# PatchTST R3: filter rows where scope=='all' and model=='patchtst_h500'
+patchtst_all = pd.read_csv(RES / "patchtst_metrics.csv")
+patchtst = patchtst_all[(patchtst_all["model"] == "patchtst_h500") &
+                        (patchtst_all["scope"] == "all")].sort_values("horizon")
+print(f"PatchTST R3 rows for plot: {len(patchtst)}  horizons={sorted(patchtst['horizon'].tolist())}")
+patchtst_curve = np.load(RES / "patchtst_h500_r3_rmse_curve.npy")  # (500,)
+
 models_show = ["naive_persistence", "xgboost", "lstm", "tcn"]
 colors = {"naive_persistence": "tab:gray", "xgboost": "tab:green",
-          "lstm": "tab:blue", "tcn": "tab:red", "lstm_direct": "#d62728"}
-colors["lstm_direct"] = "#9400d3"  # vivid purple
+          "lstm": "tab:blue", "tcn": "tab:red",
+          "lstm_direct": "#9400d3",      # vivid purple
+          "patchtst":    "#ff6f00"}      # vivid orange
 labels = {"naive_persistence": "Naive persistence",
           "xgboost": "XGBoost (autoreg)",
           "lstm": "LSTM (autoreg)",
           "tcn": "TCN (autoreg)",
-          "lstm_direct": "LSTM direct multi-step (NEW)"}
+          "lstm_direct": "LSTM direct multi-step",
+          "patchtst":    "PatchTST direct (NEW)"}
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5))
 
@@ -65,6 +79,12 @@ ax1.plot(np.arange(1, 501), rmse_curve, "-", color=colors["lstm_direct"],
 ax1.plot(direct_pts["horizon"], direct_pts["rmse"], "s", color=colors["lstm_direct"],
          label=labels["lstm_direct"], markersize=11, markeredgecolor="black",
          markeredgewidth=1.2, zorder=5)
+# PatchTST R3
+ax1.plot(np.arange(1, 501), patchtst_curve, "-", color=colors["patchtst"],
+         alpha=0.55, linewidth=2, zorder=4)
+ax1.plot(patchtst["horizon"], patchtst["rmse"], "D", color=colors["patchtst"],
+         label=labels["patchtst"], markersize=10, markeredgecolor="black",
+         markeredgewidth=1.2, zorder=6)
 ax1.set_xlabel("Forecast horizon h (steps)", fontsize=11)
 ax1.set_ylabel("RMSE (denormalised $C_p$)", fontsize=11)
 ax1.set_title("Round 3 — Long-horizon RMSE\n(linear scale)", fontsize=12)
@@ -82,6 +102,11 @@ ax2.semilogy(np.arange(1, 501), rmse_curve, "-", color=colors["lstm_direct"],
 ax2.semilogy(direct_pts["horizon"], direct_pts["rmse"], "s",
              color=colors["lstm_direct"], label=labels["lstm_direct"],
              markersize=11, markeredgecolor="black", markeredgewidth=1.2, zorder=5)
+ax2.semilogy(np.arange(1, 501), patchtst_curve, "-", color=colors["patchtst"],
+             alpha=0.55, linewidth=2, zorder=4)
+ax2.semilogy(patchtst["horizon"], patchtst["rmse"], "D",
+             color=colors["patchtst"], label=labels["patchtst"],
+             markersize=10, markeredgecolor="black", markeredgewidth=1.2, zorder=6)
 ax2.set_xlabel("Forecast horizon h (steps)", fontsize=11)
 ax2.set_ylabel("RMSE (log scale)", fontsize=11)
 ax2.set_title("Round 3 — Long-horizon RMSE\n(log scale)", fontsize=12)
@@ -105,3 +130,6 @@ for m in models_show:
 vd = direct[direct["horizon"] == 500]["rmse"].values
 if len(vd):
     print(f"  {labels['lstm_direct']:<28s} {vd[0]:.4f}")
+vp = patchtst[patchtst["horizon"] == 500]["rmse"].values
+if len(vp):
+    print(f"  {labels['patchtst']:<28s} {vp[0]:.4f}")
