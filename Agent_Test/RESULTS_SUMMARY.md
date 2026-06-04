@@ -197,7 +197,7 @@ the model itself.
 | Round | Scope | Buildings | Series | Train windows | Question answered |
 |---|---|---:|---:|---:|---|
 | **R1** | Single building | 1 (Alpha1_4 / 2_1_3) | 17 | 38 920 | Can the model learn one building? |
-| **R2** | 5 configurations | 5 (Alpha1_4/6 × {1_1_3, 2_1_3, 3_1_3}) | 85 | 194 140 | Generalisation across geometries and roughness? |
+| **R2** | 5 configurations | 5 (Alpha1_4/{1,2,3}_1_3 + Alpha1_6/{1,3}_1_3) | 85 | 194 140 | Generalisation across geometries and roughness? |
 | **R3** | Full dataset | 20 (all alphas × all ratios) | 340 | 776 560 | Universal model for $C_p$ forecasting? |
 
 ---
