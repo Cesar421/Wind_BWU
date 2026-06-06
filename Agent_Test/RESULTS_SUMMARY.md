@@ -350,7 +350,7 @@ returns the full 500-step trajectory.
 
 | Configuration | Value |
 |---|---|
-| Scope | R3 (all 340 series, 759 560 train windows) |
+| Scope | R3 (all 340 series, 776 560 train windows) |
 | Backbone | `PureLSTM(hidden=256, layers=2, dropout=0.2, fc=128)` |
 | Output head | `Linear(128 → 500)` (vs. `Linear(128 → 1)` for autoregressive) |
 | Loss | MSE over the full 500-step horizon |
@@ -490,7 +490,7 @@ channel-mixed PatchTST with the same direct multi-step training recipe.
   5, factor 0.5), early stopping (patience 15).
 - Loss: MSE on the full H-dimensional output (direct).
 
-**Results — Round 3 (340 series, 759 k windows, H = 500)**
+**Results — Round 3 (340 series, 776 k windows, H = 500)**
 
 | Horizon | RMSE | MAE | R² | $\Delta$ vs LSTM-direct R3 |
 |---------|------|-----|-----|-----------------------------|
@@ -513,7 +513,7 @@ epoch 111, best val_loss = 0.1406.
 | 100 | 0.1651 | 0.1296 | 0.8629 | |
 | 500 | 0.1724 | 0.1360 | 0.8481 | matches R3 |
 
-R2 (190 k) and R3 (759 k) give numerically indistinguishable results
+R2 (190 k) and R3 (776 k) give numerically indistinguishable results
 (differences ≤ 0.003 in RMSE across all horizons). The 1.1 M-parameter
 PatchTST is **saturated at R2** — extra data does not buy further accuracy.
 
