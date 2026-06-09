@@ -1,11 +1,11 @@
 # Wind Pressure Cp Forecasting — BWU Research
 
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-blue?logo=github)](https://cesar421.github.io/Wind_BWU/)
-[![Streamlit App](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit)](STREAMLIT_URL)
+[![Streamlit App](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit)](https://bwucesarcpforecasting.streamlit.app/)
 
 Deep-learning and classical forecasting of wind pressure coefficients ($C_p$) on tall buildings using the [TPU BDH](https://www.wind.arch.t-kougei.ac.jp/info_center/windpressure/highrise/Homepage/homepageHDF.htm) benchmark.
 
-→ **[Project Website](https://cesar421.github.io/Wind_BWU/)** · **[Interactive Dashboard](STREAMLIT_URL)**
+→ **[Project Website](https://cesar421.github.io/Wind_BWU/)** · **[Interactive Dashboard](https://bwucesarcpforecasting.streamlit.app/)**
 
 ---
 
