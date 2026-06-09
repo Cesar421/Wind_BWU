@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wind Pressure Cp Forecasting — BWU Research</title>
+  <meta name="description" content="Deep learning and classical forecasting of wind pressure coefficients (Cp) on tall buildings using the TPU BDH benchmark." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b22;
+      --surface2:   #21262d;
+      --border:     #30363d;
+      --accent:     #2f81f7;
+      --accent2:    #58a6ff;
+      --green:      #3fb950;
+      --orange:     #d29922;
+      --red:        #f85149;
+      --text:       #e6edf3;
+      --text-muted: #8b949e;
+      --radius:     8px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: var(--surface2);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ─── Layout ───────────────────────────────────────────── */
+    .container { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+    /* ─── Nav ───────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,17,23,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+    }
+    nav .container { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .nav-brand { font-weight: 600; font-size: 1rem; color: var(--text); }
+    .nav-brand span { color: var(--accent2); }
+    .nav-links { display: flex; gap: 20px; font-size: 0.875rem; }
+    .nav-links a { color: var(--text-muted); transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ─── Hero ──────────────────────────────────────────────── */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(47,129,247,0.12);
+      color: var(--accent2);
+      border: 1px solid rgba(47,129,247,0.3);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-bottom: 24px;
+      letter-spacing: 0.04em;
+    }
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 20px;
+    }
+    .hero h1 em { color: var(--accent2); font-style: normal; }
+    .hero p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 620px;
+      margin: 0 auto 36px;
+    }
+    .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      border: none;
+    }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+    /* ─── Stats bar ─────────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 48px 0;
+    }
+    .stat {
+      background: var(--surface);
+      padding: 24px 20px;
+      text-align: center;
+    }
+    .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--accent2); }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ─── Sections ──────────────────────────────────────────── */
+    section { padding: 60px 0; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+    .section-title {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-sub {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+    }
+
+    /* ─── Cards ─────────────────────────────────────────────── */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--accent2); }
+    .card-icon { font-size: 1.6rem; margin-bottom: 12px; }
+    .card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    .card p { font-size: 0.875rem; color: var(--text-muted); }
+
+    /* ─── Table ─────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-weight: 500;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .tag-green  { background: rgba(63,185,80,0.15);  color: var(--green); }
+    .tag-orange { background: rgba(210,153,34,0.15); color: var(--orange); }
+    .tag-red    { background: rgba(248,81,73,0.15);  color: var(--red); }
+    .tag-blue   { background: rgba(47,129,247,0.15); color: var(--accent2); }
+    .bold { font-weight: 600; color: var(--text); }
+
+    /* ─── Timeline ──────────────────────────────────────────── */
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .tl-item { display: flex; gap: 20px; }
+    .tl-line { display: flex; flex-direction: column; align-items: center; }
+    .tl-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent2);
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 0 2px var(--accent2);
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .tl-track { width: 2px; background: var(--border); flex: 1; margin: 4px 0; }
+    .tl-item:last-child .tl-track { display: none; }
+    .tl-body { padding-bottom: 28px; }
+    .tl-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+    .tl-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+    /* ─── Finding blocks ─────────────────────────────────────── */
+    .findings { display: flex; flex-direction: column; gap: 14px; }
+    .finding {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent2);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .finding.warn { border-left-color: var(--orange); }
+    .finding.danger { border-left-color: var(--red); }
+    .finding.success { border-left-color: var(--green); }
+    .finding-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
+    .finding p { font-size: 0.9rem; }
+
+    /* ─── CTA banner ─────────────────────────────────────────── */
+    .cta-banner {
+      background: linear-gradient(135deg, rgba(47,129,247,0.12), rgba(88,166,255,0.06));
+      border: 1px solid rgba(47,129,247,0.3);
+      border-radius: 12px;
+      padding: 48px 40px;
+      text-align: center;
+    }
+    .cta-banner h2 { font-size: 1.6rem; font-weight: 700; margin-bottom: 12px; }
+    .cta-banner p { color: var(--text-muted); margin-bottom: 28px; max-width: 520px; margin-left: auto; margin-right: auto; }
+
+    /* ─── Footer ─────────────────────────────────────────────── */
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- ─── Navigation ──────────────────────────────────────────────── -->
+<nav>
+  <div class="container">
+    <span class="nav-brand">Wind<span>Cp</span> · BWU Research</span>
+    <div class="nav-links">
+      <a href="#overview">Overview</a>
+      <a href="#results">Results</a>
+      <a href="#findings">Findings</a>
+      <a href="#methods">Methods</a>
+      <a href="#demo">Live Demo</a>
+      <a href="https://github.com/Cesar421/Wind_BWU" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Hero ──────────────────────────────────────────────────────── -->
+<header class="hero">
+  <div class="container">
+    <div class="hero-badge">TPU BDH Benchmark · 1 000 Hz Wind Tunnel Data</div>
+    <h1>
+      Wind Pressure Coefficient<br />
+      <em>Forecasting at Scale</em>
+    </h1>
+    <p>
+      Can a machine-learning model predict turbulent wind pressures on tall buildings
+      0.5 seconds ahead? We trained 10+ models on 340 wind-tunnel series and found
+      the answer is nuanced — and spectrally critical.
+    </p>
+    <div class="hero-cta">
+      <!-- ⚠️  Replace STREAMLIT_URL with your actual Streamlit Cloud URL once deployed -->
+      <a class="btn btn-primary" id="streamlit-btn" href="STREAMLIT_URL" target="_blank" rel="noopener">
+        🚀 &nbsp;Launch Interactive Dashboard
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/Cesar421/Wind_BWU" target="_blank" rel="noopener">
+        ⭐ &nbsp;View on GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ─── Stats ──────────────────────────────────────────────────────── -->
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-value">340</div><div class="stat-label">Wind-tunnel series</div></div>
+    <div class="stat"><div class="stat-value">1 kHz</div><div class="stat-label">Sampling rate</div></div>
+    <div class="stat"><div class="stat-value">12</div><div class="stat-label">Models trained</div></div>
+    <div class="stat"><div class="stat-value">h = 500</div><div class="stat-label">Max forecast horizon</div></div>
+    <div class="stat"><div class="stat-value">0.85</div><div class="stat-label">Best R² at h = 500</div></div>
+  </div>
+</div>
+
+<!-- ─── Overview ────────────────────────────────────────────────────── -->
+<section id="overview">
+  <div class="container">
+    <div class="section-title">📋 Project Overview</div>
+    <p class="section-sub">Three progressive training rounds — single building → 5 geometries → 340 series.</p>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🏢</div>
+        <h3>TPU BDH Dataset</h3>
+        <p>20 building aspect ratios × multiple yaw angles × 2 terrain roughness profiles (α = 1/4 and 1/6). Each series: 32 768 samples at 1 000 Hz.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔁</div>
+        <h3>Fair-Baseline Protocol</h3>
+        <p>Identical 70/15/15 split, same seed, optimiser, batch size and hardware across all models. Differences are model differences only.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Three Evaluation Layers</h3>
+        <p>Point metrics (RMSE, R²) → statistical significance (Diebold-Mariano) → spectral fidelity (Welch PSD). Each layer changes the ranking.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <h3>Spectral Diagnosis</h3>
+        <p>MSE-trained models collapse to the conditional mean at h = 500. Predicted PSD is <strong>60–75×</strong> smaller than the true signal PSD — the critical finding for wind engineering.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Training rounds timeline ─────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-title">🗂️ Training Rounds</div>
+    <p class="section-sub">Progressively broader scope to test generalisation.</p>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot"></div><div class="tl-track"></div></div>
+        <div class="tl-body">
+          <div class="tl-title">Round 1 — Single building <span class="tag tag-blue">17 series · 38 k windows</span></div>
+          <div class="tl-desc">Sanity check: can the model overfit one building? Ridge R² = 0.969; Random Forest fails (R² = −0.23 — not enough data diversity for tree splits).</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot"></div><div class="tl-track"></div></div>
+        <div class="tl-body">
+          <div class="tl-title">Round 2 — 5 configurations <span class="tag tag-blue">85 series · 194 k windows</span></div>
+          <div class="tl-desc">Generalisation across 5 geometries and 2 roughness profiles. Tree models recover (R² ≈ 0.997). TCN emerges as single-step leader (RMSE 0.0172).</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot"></div><div class="tl-track"></div></div>
+        <div class="tl-body">
+          <div class="tl-title">Round 3 — Universal model <span class="tag tag-blue">340 series · 777 k windows</span></div>
+          <div class="tl-desc">Full corpus. Single-step "solved" (R² > 0.997 for every model). Long-horizon autoregressive collapse exposed: LSTM R² = −6.18 at h = 500.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot" style="background:var(--green);box-shadow:0 0 0 2px var(--green);"></div><div class="tl-track"></div></div>
+        <div class="tl-body">
+          <div class="tl-title">Post-R3 B — Direct multi-step LSTM &amp; PatchTST <span class="tag tag-green">Intervention</span></div>
+          <div class="tl-desc">Replace autoregressive rollout with a single forward pass over all 500 future steps. LSTM-direct: R² 0.84 at h = 500 (vs −6.18). PatchTST: R² 0.85. Both converge to the same RMSE ≈ 0.175 ceiling.</div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-line"><div class="tl-dot" style="background:var(--orange);box-shadow:0 0 0 2px var(--orange);"></div><div class="tl-track"></div></div>
+        <div class="tl-body">
+          <div class="tl-title">Spectral diagnosis &amp; WPTSE-Net <span class="tag tag-orange">Key finding</span></div>
+          <div class="tl-desc">Welch PSD reveals predicted power is 60–75× below real signal. WPTSE-Net (synthesis model, Huber loss) recovers 79 % of true spectral power — 50× improvement over MSE forecasters.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Results table ─────────────────────────────────────────────────── -->
+<section id="results">
+  <div class="container">
+    <div class="section-title">📈 Results — h = 500 Autoregressive (Round 3)</div>
+    <p class="section-sub">RMSE and R² on the held-out test set (denormalised windward C<sub>p</sub>). Lower RMSE = better; R² closer to 1 = better.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Paradigm</th>
+            <th>RMSE h=1</th>
+            <th>RMSE h=500</th>
+            <th>R² h=500</th>
+            <th>vs Naive (DM p)</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="bold">Naive persistence</td>
+            <td>—</td>
+            <td>—</td>
+            <td>0.118</td>
+            <td>≈ 0.97</td>
+            <td>—</td>
+            <td><span class="tag tag-blue">Baseline</span></td>
+          </tr>
+          <tr>
+            <td>Ridge</td>
+            <td>Autoreg</td>
+            <td>0.0224</td>
+            <td>~10⁴ ⚠️</td>
+            <td>diverges</td>
+            <td>—</td>
+            <td><span class="tag tag-red">Unstable</span></td>
+          </tr>
+          <tr>
+            <td>Random Forest</td>
+            <td>Autoreg</td>
+            <td>0.0241</td>
+            <td>0.156</td>
+            <td>—</td>
+            <td>p &lt; 0.001 (naive wins)</td>
+            <td><span class="tag tag-orange">Underperforms</span></td>
+          </tr>
+          <tr>
+            <td class="bold">XGBoost</td>
+            <td>Autoreg</td>
+            <td>0.0242</td>
+            <td>0.115</td>
+            <td>—</td>
+            <td>p = 0.20 (tie)</td>
+            <td><span class="tag tag-green">Ties naive</span></td>
+          </tr>
+          <tr>
+            <td>LSTM</td>
+            <td>Autoreg</td>
+            <td>0.0246</td>
+            <td>0.307</td>
+            <td>−6.18</td>
+            <td>p &lt; 0.001 (naive wins)</td>
+            <td><span class="tag tag-red">Collapse</span></td>
+          </tr>
+          <tr>
+            <td>GRU</td>
+            <td>Autoreg</td>
+            <td>0.0245</td>
+            <td>0.255</td>
+            <td>—</td>
+            <td>p &lt; 0.001 (naive wins)</td>
+            <td><span class="tag tag-red">Collapse</span></td>
+          </tr>
+          <tr>
+            <td>TCN</td>
+            <td>Autoreg</td>
+            <td>0.0186</td>
+            <td>0.667</td>
+            <td>≈ −20</td>
+            <td>p &lt; 0.001 (naive wins)</td>
+            <td><span class="tag tag-red">Worst collapse</span></td>
+          </tr>
+          <tr style="background:rgba(47,129,247,0.05)">
+            <td class="bold">LSTM-direct (B.4)</td>
+            <td>Direct multi-step</td>
+            <td>0.0404</td>
+            <td class="bold">0.179</td>
+            <td class="bold">0.84</td>
+            <td>still above naive</td>
+            <td><span class="tag tag-green">Best R²</span></td>
+          </tr>
+          <tr style="background:rgba(47,129,247,0.05)">
+            <td class="bold">PatchTST (C.6)</td>
+            <td>Direct multi-step</td>
+            <td>0.0427</td>
+            <td class="bold">0.175</td>
+            <td class="bold">0.85</td>
+            <td>still above naive</td>
+            <td><span class="tag tag-green">Best R²</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px;font-size:0.8rem;color:var(--text-muted)">
+      ⚠️ High R² at h = 500 does not mean spectral fidelity. See <a href="#findings">Spectral Findings</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ─── Key Findings ──────────────────────────────────────────────────── -->
+<section id="findings">
+  <div class="container">
+    <div class="section-title">💡 Key Findings</div>
+    <p class="section-sub">Four take-aways that change how practitioners should evaluate wind-pressure forecasters.</p>
+    <div class="findings">
+      <div class="finding success">
+        <div class="finding-label">FINDING 1 · Single-step</div>
+        <p><strong>h = 1 is essentially solved.</strong> Every reasonable model (R3) reaches RMSE ≈ 0.04 and R² > 0.99. Single-step metrics are no longer a useful differentiator.</p>
+      </div>
+      <div class="finding danger">
+        <div class="finding-label">FINDING 2 · Autoregressive collapse</div>
+        <p><strong>Recurrent and convolutional models catastrophically fail at h = 500</strong> (LSTM R² = −6.18; TCN R² ≈ −20). Classical baselines (naive, XGBoost) remain near R² ≈ 0.97. Scaling the dataset does not fix this — the collapse is structural, caused by error compounding.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-label">FINDING 3 · Direct multi-step fixes rollout</div>
+        <p><strong>Replacing the output head with <code>Linear(128 → 500)</code> + full-vector MSE loss</strong> recovers R² = 0.84–0.85 at h = 500. Two radically different architectures (LSTM-direct and PatchTST) converge to the same ceiling — confirming it is not architectural.</p>
+      </div>
+      <div class="finding warn">
+        <div class="finding-label">FINDING 4 · Spectral collapse (most critical for wind engineering)</div>
+        <p><strong>The predicted PSD is 60–75× smaller than the true signal PSD at every frequency above 4 Hz.</strong> MSE-trained models output the conditional mean — the spectrum collapses. R² = 0.85 is misleading for applications requiring spectral fidelity (fatigue, peak-factor, gust-effect factor). WPTSE-Net (synthesis, Huber loss) recovers 79 % of true spectral power.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Methods ───────────────────────────────────────────────────────── -->
+<section id="methods">
+  <div class="container">
+    <div class="section-title">🔬 Methods &amp; Models</div>
+    <p class="section-sub">Input: 100-sample (100 ms) windows of 4 face-averaged C<sub>p</sub> channels. Target: windward C<sub>p</sub> at horizons 1, 10, 50, 100, 500 ms.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Family</th><th>Model</th><th>Parameters (R3)</th><th>Train time</th><th>Best val MSE</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Classical</td><td>Ridge</td><td>401</td><td>1 s</td><td>0.00238</td></tr>
+          <tr><td>Classical</td><td>XGBoost</td><td>500 trees</td><td>69 s</td><td>0.00305</td></tr>
+          <tr><td>Classical</td><td>Random Forest</td><td>200 trees</td><td>7 262 s</td><td>0.00281</td></tr>
+          <tr><td>Deep · Autoreg</td><td>LSTM</td><td>827 649</td><td>46 min</td><td>0.00294</td></tr>
+          <tr><td>Deep · Autoreg</td><td>GRU</td><td>628 993</td><td>38 min</td><td>0.00290</td></tr>
+          <tr><td>Deep · Autoreg</td><td>TCN</td><td>459 073</td><td>2.4 h</td><td>0.00166</td></tr>
+          <tr><td>Deep · Direct</td><td>LSTM-direct</td><td>~830 k</td><td>~45 min</td><td>0.1440</td></tr>
+          <tr><td>Deep · Direct</td><td>PatchTST</td><td>1 111 924</td><td>71 min</td><td>0.1406</td></tr>
+          <tr><td>Synthesis</td><td>WPTSE-Net</td><td>122 528</td><td>32 min</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:16px; font-size:0.875rem; color:var(--text-muted)">
+      Hardware: NVIDIA RTX A4000 16 GB · CUDA 11.8 · PyTorch 2.7.1 · Adam lr=1e-3 · batch 256 · seed 42.
+    </p>
+  </div>
+</section>
+
+<!-- ─── CTA / Demo ────────────────────────────────────────────────────── -->
+<section id="demo">
+  <div class="container">
+    <div class="cta-banner">
+      <h2>🚀 Explore the results interactively</h2>
+      <p>
+        Load the trained models, visualise RMSE curves across all horizons and rounds,
+        run the Diebold-Mariano test in real time, and inspect the PSD spectral collapse —
+        all in the Streamlit dashboard.
+      </p>
+      <!-- ⚠️  Replace STREAMLIT_URL with your actual Streamlit Cloud URL once deployed -->
+      <a class="btn btn-primary" style="font-size:1rem;padding:14px 32px;" id="cta-streamlit-btn" href="STREAMLIT_URL" target="_blank" rel="noopener">
+        Launch Dashboard ↗
+      </a>
+      <p style="margin-top:16px; font-size:0.8rem; color:var(--text-muted)">
+        Hosted on <a href="https://streamlit.io/cloud" target="_blank" rel="noopener">Streamlit Community Cloud</a> · free tier · no login required
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <p>
+      Wind Pressure C<sub>p</sub> Forecasting · BWU Research ·
+      <a href="https://github.com/Cesar421/Wind_BWU" target="_blank" rel="noopener">github.com/Cesar421/Wind_BWU</a>
+    </p>
+    <p style="margin-top:6px">
+      Data: <a href="https://www.wind.arch.t-kougei.ac.jp/info_center/windpressure/highrise/Homepage/homepageHDF.htm" target="_blank" rel="noopener">TPU BDH Benchmark</a> ·
+      Built with GitHub Pages
+    </p>
+  </div>
+</footer>
+
+<script>
+  // ─── Replace placeholder URL with actual Streamlit URL ──────────────
+  // If you haven't deployed yet, the buttons will show a friendly alert instead of 404
+  const STREAMLIT_URL = "STREAMLIT_URL";
+  if (STREAMLIT_URL === "STREAMLIT_URL") {
+    document.querySelectorAll('[href="STREAMLIT_URL"]').forEach(btn => {
+      btn.href = "#demo";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        alert("⏳ Dashboard coming soon — deploy to Streamlit Cloud first.\n\nSee README for instructions.");
+      });
+    });
+  }
+</script>
+
+</body>
+</html>
