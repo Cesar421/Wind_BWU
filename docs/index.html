@@ -349,14 +349,14 @@
         <div class="tl-line"><div class="tl-dot"></div><div class="tl-track"></div></div>
         <div class="tl-body">
           <div class="tl-title">Round 3 — Universal model <span class="tag tag-blue">340 series · 777 k windows</span></div>
-          <div class="tl-desc">Full corpus. Single-step "solved" (R² > 0.997 for every model). Long-horizon autoregressive collapse exposed: LSTM R² = −6.18 at h = 500.</div>
+          <div class="tl-desc">Full corpus. Single-step "solved" (R² > 0.997 for every model). Long-horizon autoregressive rollout looked like a collapse under single-trajectory scoring (LSTM R² = −6.18) — later shown to be a measurement artifact; over 680 trajectories LSTM/GRU reach R² ≈ 0.65 at h = 500.</div>
         </div>
       </div>
       <div class="tl-item">
         <div class="tl-line"><div class="tl-dot" style="background:var(--green);box-shadow:0 0 0 2px var(--green);"></div><div class="tl-track"></div></div>
         <div class="tl-body">
           <div class="tl-title">Post-R3 B — Direct multi-step LSTM &amp; PatchTST <span class="tag tag-green">Intervention</span></div>
-          <div class="tl-desc">Replace autoregressive rollout with a single forward pass over all 500 future steps. LSTM-direct: R² 0.84 at h = 500 (vs −6.18). PatchTST: R² 0.85. Both converge to the same RMSE ≈ 0.175 ceiling.</div>
+          <div class="tl-desc">Replace autoregressive rollout with a single forward pass over all 500 future steps. LSTM-direct: R² 0.84 at h = 500; PatchTST: R² 0.85 — both beat naive persistence (R² 0.74) and converge to the same RMSE ≈ 0.175 ceiling.</div>
         </div>
       </div>
       <div class="tl-item">

@@ -136,10 +136,11 @@ with st.sidebar:
 st.title("Wind Pressure Cp - Forecasting Dashboard")
 st.caption("All trained models - TPU BDH Benchmark - No retraining")
 
-(tab_overview, tab_horizon, tab_model,
+(tab_overview, tab_horizon, tab_longh, tab_model,
  tab_direct, tab_dm, tab_cross, tab_plots, tab_agent) = st.tabs([
     "Summary",
     "Multi-Horizon",
+    "Long-horizon (corrected)",
     "Per Model",
     "LSTM-direct / PatchTST",
     "Diebold-Mariano",
@@ -218,6 +219,11 @@ with tab_overview:
 # ===========================================================================
 with tab_horizon:
     st.subheader(f"Multi-Horizon Metrics - Round {selected_round}")
+    st.caption(
+        "⚠️ Legacy single-trajectory evaluation (one 500-step rollout from the "
+        "last test series). The h=500 numbers here are not representative — see "
+        "the **Long-horizon (corrected)** tab for the multi-trajectory results."
+    )
 
     df_mh = load_csv(AT_RESULTS / f"multi_horizon_metrics_round{selected_round}.csv")
     if df_mh is None:
@@ -259,6 +265,86 @@ with tab_horizon:
             )
         except Exception:
             st.dataframe(df_mh, use_container_width=True)
+
+
+# ===========================================================================
+# TAB — LONG-HORIZON (CORRECTED, MULTI-TRAJECTORY)
+# ===========================================================================
+with tab_longh:
+    st.subheader("Long-horizon h=500 — multi-trajectory (corrected)")
+    st.caption(
+        "Per-step error at h=500 aggregated over the full test set / 680 "
+        "trajectories — the same regime for every model. Fixes the earlier "
+        "single-trajectory artifact that inflated naive (RMSE 0.118 / R² 0.97) "
+        "and the deep-model collapse (R² −6.18)."
+    )
+
+    df_lh = load_csv(AT_RESULTS / "long_horizon_multitraj_round3.csv")
+    df_nd = load_csv(AT_RESULTS / "naive_dense_metrics_round3.csv")
+    df_sig = load_csv(AT_RESULTS / "long_horizon_significance_round3.csv")
+
+    if df_lh is None:
+        st.warning(
+            "long_horizon_multitraj_round3.csv not found. Run "
+            "`python evaluate_long_horizon.py` and `python naive_dense_baseline.py`."
+        )
+    else:
+        # Headline corrected comparison at h=500
+        rows = []
+        h500 = df_lh[df_lh.horizon == 500]
+        for _, r in h500.iterrows():
+            rows.append({"model": r["model"], "RMSE h=500": round(r["rmse"], 3),
+                         "R² h=500": round(r["r2"], 3)})
+        # dense naive (exact, full window set) + direct models
+        if df_nd is not None:
+            nd = df_nd[df_nd.horizon == 500].iloc[0]
+            rows.append({"model": "naive_dense (146k win)",
+                         "RMSE h=500": round(nd["rmse"], 3),
+                         "R² h=500": round(nd["r2"], 3)})
+        for f, nm in [("lstm_direct_metrics.csv", "LSTM-direct"),
+                      ("patchtst_metrics.csv", "PatchTST")]:
+            d = load_csv(AT_RESULTS / f)
+            if d is not None:
+                dd = d[(d.horizon == 500)]
+                if len(dd):
+                    rr = dd.iloc[-1]
+                    rows.append({"model": nm, "RMSE h=500": round(rr["rmse"], 3),
+                                 "R² h=500": round(rr["r2"], 3)})
+        comp = pd.DataFrame(rows).sort_values("RMSE h=500").reset_index(drop=True)
+        st.dataframe(comp.style.background_gradient(cmap="RdYlGn_r",
+                     subset=["RMSE h=500"]), use_container_width=True)
+        st.markdown(
+            "**Direct multi-step (LSTM-direct 0.179, PatchTST 0.175) beats naive "
+            "(0.231).** Autoregressive LSTM/GRU (~0.27) are competitive — they "
+            "beat naive on ~45 % of individual trajectories; only TCN (0.41) is "
+            "genuinely unstable."
+        )
+
+        st.divider()
+        metric_lh = st.radio("Metric vs horizon", ["rmse", "r2"],
+                             horizontal=True, key="lh_m")
+        fig_lh = px.line(df_lh, x="horizon", y=metric_lh, color="model",
+                         markers=True, log_x=True, template="plotly_dark",
+                         color_discrete_map=MODEL_COLORS,
+                         title=f"{metric_lh.upper()} vs horizon (multi-trajectory, R3)")
+        fig_lh.update_layout(height=460, xaxis_title="Horizon (ms)")
+        st.plotly_chart(fig_lh, use_container_width=True)
+
+        if df_sig is not None:
+            st.divider()
+            st.subheader("Significance vs naive (680 trajectories)")
+            st.caption("win_rate_vs_naive = fraction of trajectories where the "
+                       "model beats naive; wilcoxon_p = paired test across "
+                       "trajectories.")
+            st.dataframe(df_sig, use_container_width=True)
+
+        for p, cap in [("rmse_vs_horizon_multitraj.png",
+                        "RMSE vs horizon (mean over trajectories)"),
+                       ("rmse_h500_boxplot_multitraj.png",
+                        "Per-trajectory RMSE distribution over 500 steps")]:
+            fp = AT_RESULTS / "plots_cross_round" / p
+            if fp.exists():
+                st.image(str(fp), caption=cap, use_container_width=True)
 
 
 # ===========================================================================
@@ -423,7 +509,10 @@ with tab_dm:
     st.subheader("Diebold-Mariano Test - Statistical Significance")
     st.caption(
         "Tests whether forecast error differences between models "
-        "are statistically significant (p < 0.05)."
+        "are statistically significant (p < 0.05). ⚠️ This DM table runs on a "
+        "single 500-step trajectory; for the robust cross-trajectory test "
+        "(paired Wilcoxon + win-rate over 680 trajectories) see the "
+        "**Long-horizon (corrected)** tab."
     )
 
     dm_files = {
