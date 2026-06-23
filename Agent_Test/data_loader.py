@@ -315,3 +315,113 @@ def load_all_buildings(
         "seq_length": seq_length,
         "horizon": horizon,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Multi-trajectory test set  (fix for single-trajectory long-horizon evaluation)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def build_test_trajectories(
+    seq_length: int = 100,
+    H: int = 500,
+    traj_per_series: int = 2,
+    train_ratio: float = 0.70,
+    val_ratio: float = 0.15,
+    data_dir: Optional[Path] = None,
+    alphas: Optional[List[str]] = None,
+    ratios: Optional[List[str]] = None,
+) -> Dict[str, np.ndarray]:
+    """
+    Sample MANY independent (seed → future-H) trajectories across the test
+    portion of *every* building-angle series, not just the last one.
+
+    This is the fix for the single-trajectory long-horizon evaluation used by
+    ``analyze_horizons.py`` / ``diebold_mariano.py`` (which only saw
+    ``load_all_buildings(...)["y_future"]`` — the first 500 steps of the LAST
+    test segment). Aggregating per-horizon metrics over these trajectories
+    yields a generalisation estimate instead of a single realisation.
+
+    Normalisation (mu/sigma) is fitted on the concatenated TRAIN portions,
+    identical to ``load_all_buildings`` so the trajectories live in exactly the
+    space the models were trained on.
+
+    Parameters
+    ----------
+    traj_per_series : how many non-overlapping H-step trajectories to draw from
+                      each test segment (evenly spaced; capped by segment length).
+
+    Returns
+    -------
+    dict with:
+        seeds    : (N, seq_length, 4) float32 — normalised look-back windows
+        futures  : (N, H)             float32 — normalised windward ground truth
+        mu, sigma: (4,)               float32 — per-face normalisation
+        meta     : list[(alpha, ratio, angle, start)]  provenance per trajectory
+        n_series : int
+    """
+    base = data_dir or POSTPROCESS_DIR
+    if alphas is None:
+        alphas = ["Alpha1_4", "Alpha1_6"]
+    ratio_set = set(ratios) if ratios else None
+
+    # ── Phase 1: split every series, collect train (for mu/sigma) + test ──
+    train_segs: List[np.ndarray] = []
+    test_segs: List[Tuple[str, str, int, np.ndarray]] = []
+    n_series = 0
+    for alpha in alphas:
+        alpha_dir = base / alpha
+        if not alpha_dir.exists():
+            continue
+        for ratio_dir in sorted(alpha_dir.iterdir()):
+            if not ratio_dir.is_dir():
+                continue
+            ratio = ratio_dir.name
+            if ratio_set is not None and ratio not in ratio_set:
+                continue
+            if not (ratio_dir / "Data").exists():
+                continue
+            for angle in available_angles(alpha, ratio, base):
+                try:
+                    ts = load_faces(alpha, ratio, angle, base)
+                except FileNotFoundError:
+                    continue
+                T = len(ts)
+                t1 = int(T * train_ratio)
+                t2 = int(T * (train_ratio + val_ratio))
+                train_segs.append(ts[:t1])
+                test_segs.append((alpha, ratio, angle, ts[t2:]))
+                n_series += 1
+
+    if n_series == 0:
+        raise RuntimeError("No data found — check POSTPROCESS_DIR path.")
+
+    mu, sigma = zscore_fit(np.concatenate(train_segs, axis=0))
+    del train_segs
+
+    # ── Phase 2: draw evenly-spaced trajectories from each test segment ──
+    span = seq_length + H
+    seeds: List[np.ndarray] = []
+    futures: List[np.ndarray] = []
+    meta: List[Tuple[str, str, int, int]] = []
+    for alpha, ratio, angle, seg in test_segs:
+        L = len(seg)
+        if L < span:
+            continue
+        n_possible = (L - span) // H + 1          # non-overlapping H-step blocks
+        n_draw = min(traj_per_series, max(1, n_possible))
+        starts = np.linspace(0, L - span, n_draw).astype(int)
+        seg_n = zscore_transform(seg, mu, sigma)
+        for s in starts:
+            seeds.append(seg_n[s: s + seq_length])
+            futures.append(seg_n[s + seq_length: s + seq_length + H, 0])
+            meta.append((alpha, ratio, angle, int(s)))
+
+    return {
+        "seeds": np.asarray(seeds, dtype=np.float32),
+        "futures": np.asarray(futures, dtype=np.float32),
+        "mu": mu, "sigma": sigma,
+        "meta": meta,
+        "n_series": n_series,
+        "seq_length": seq_length,
+        "H": H,
+    }

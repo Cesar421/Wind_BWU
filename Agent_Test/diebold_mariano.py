@@ -1,6 +1,13 @@
 """
 Diebold-Mariano (1995) test for forecast accuracy comparison.
 
+⚠️ SINGLE-TRAJECTORY (legacy). Runs on the loss differential of ONE 500-step
+trajectory (n=500 autocorrelated steps), so its p-values describe one
+realisation, not generalisation. The robust replacement is the cross-trajectory
+test in `evaluate_long_horizon.py` (paired Wilcoxon + win-rate over 680
+trajectories). Kept for the original record.
+
+
 For each pair of models (A, B), we compare the squared-error series on the
 500-step autoregressive forecast trajectory from the same `test_seed`. The DM
 statistic uses a HAC (Newey-West) variance estimator to account for the strong

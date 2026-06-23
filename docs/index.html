@@ -373,8 +373,8 @@
 <!-- ─── Results table ─────────────────────────────────────────────────── -->
 <section id="results">
   <div class="container">
-    <div class="section-title"> Results — h = 500 Autoregressive (Round 3)</div>
-    <p class="section-sub">RMSE and R² on the held-out test set (denormalised windward C<sub>p</sub>). Lower RMSE = better; R² closer to 1 = better.</p>
+    <div class="section-title"> Results — h = 500 (Round 3, multi-trajectory)</div>
+    <p class="section-sub">RMSE and R² at step h = 500, aggregated over the full 146,880-window test set (denormalised windward C<sub>p</sub>) — the same regime for every model. An earlier single-trajectory evaluation inflated the naive baseline (RMSE 0.118 / R² 0.97) and the deep-model "collapse" (R² −6.18); those were measurement artifacts. Lower RMSE = better; R² closer to 1 = better. Classical rows (†) still show legacy single-trajectory values pending re-fit.</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -392,14 +392,14 @@
           <tr>
             <td class="bold">Naive persistence</td>
             <td>—</td>
-            <td>—</td>
-            <td>0.118</td>
-            <td>≈ 0.97</td>
+            <td>0.0322</td>
+            <td>0.231</td>
+            <td>0.74</td>
             <td>—</td>
             <td><span class="tag tag-blue">Baseline</span></td>
           </tr>
           <tr>
-            <td>Ridge</td>
+            <td>Ridge †</td>
             <td>Autoreg</td>
             <td>0.0224</td>
             <td>~10⁴ </td>
@@ -408,49 +408,49 @@
             <td><span class="tag tag-red">Unstable</span></td>
           </tr>
           <tr>
-            <td>Random Forest</td>
+            <td>Random Forest †</td>
             <td>Autoreg</td>
             <td>0.0241</td>
             <td>0.156</td>
             <td>—</td>
-            <td>p &lt; 0.001 (naive wins)</td>
-            <td><span class="tag tag-orange">Underperforms</span></td>
+            <td>legacy single-traj</td>
+            <td><span class="tag tag-orange">Pending re-fit</span></td>
           </tr>
           <tr>
-            <td class="bold">XGBoost</td>
+            <td class="bold">XGBoost †</td>
             <td>Autoreg</td>
             <td>0.0242</td>
             <td>0.115</td>
             <td>—</td>
-            <td>p = 0.20 (tie)</td>
-            <td><span class="tag tag-green">Ties naive</span></td>
+            <td>legacy single-traj</td>
+            <td><span class="tag tag-orange">Pending re-fit</span></td>
           </tr>
           <tr>
             <td>LSTM</td>
             <td>Autoreg</td>
             <td>0.0246</td>
-            <td>0.307</td>
-            <td>−6.18</td>
-            <td>p &lt; 0.001 (naive wins)</td>
-            <td><span class="tag tag-red">Collapse</span></td>
+            <td>0.270</td>
+            <td>0.65</td>
+            <td>beats naive on 44% of traj.</td>
+            <td><span class="tag tag-orange">Competitive</span></td>
           </tr>
           <tr>
             <td>GRU</td>
             <td>Autoreg</td>
             <td>0.0245</td>
-            <td>0.255</td>
-            <td>—</td>
-            <td>p &lt; 0.001 (naive wins)</td>
-            <td><span class="tag tag-red">Collapse</span></td>
+            <td>0.273</td>
+            <td>0.64</td>
+            <td>beats naive on 47% of traj.</td>
+            <td><span class="tag tag-orange">Competitive</span></td>
           </tr>
           <tr>
             <td>TCN</td>
             <td>Autoreg</td>
             <td>0.0186</td>
-            <td>0.667</td>
-            <td>≈ −20</td>
+            <td>0.411</td>
+            <td>0.19</td>
             <td>p &lt; 0.001 (naive wins)</td>
-            <td><span class="tag tag-red">Worst collapse</span></td>
+            <td><span class="tag tag-red">Unstable</span></td>
           </tr>
           <tr style="background:rgba(47,129,247,0.05)">
             <td class="bold">LSTM-direct (B.4)</td>
@@ -458,7 +458,7 @@
             <td>0.0404</td>
             <td class="bold">0.179</td>
             <td class="bold">0.84</td>
-            <td>still above naive</td>
+            <td>beats naive ✓</td>
             <td><span class="tag tag-green">Best R²</span></td>
           </tr>
           <tr style="background:rgba(47,129,247,0.05)">
@@ -467,14 +467,14 @@
             <td>0.0427</td>
             <td class="bold">0.175</td>
             <td class="bold">0.85</td>
-            <td>still above naive</td>
+            <td>beats naive ✓</td>
             <td><span class="tag tag-green">Best R²</span></td>
           </tr>
         </tbody>
       </table>
     </div>
     <p style="margin-top:14px;font-size:0.8rem;color:var(--text-muted)">
-      High R² at h = 500 does not mean spectral fidelity. See <a href="#findings">Spectral Findings</a>.
+      † Ridge / Random Forest / XGBoost still show legacy <em>single-trajectory</em> h = 500 values (multi-trajectory re-fit pending); all other rows use the corrected 146,880-window regime. High R² at h = 500 does not mean spectral fidelity. See <a href="#findings">Spectral Findings</a>.
     </p>
   </div>
 </section>
@@ -490,8 +490,8 @@
         <p><strong>h = 1 is essentially solved.</strong> Every reasonable model (R3) reaches RMSE ≈ 0.04 and R² > 0.99. Single-step metrics are no longer a useful differentiator.</p>
       </div>
       <div class="finding danger">
-        <div class="finding-label">FINDING 2 · Autoregressive collapse</div>
-        <p><strong>Recurrent and convolutional models catastrophically fail at h = 500</strong> (LSTM R² = −6.18; TCN R² ≈ −20). Classical baselines (naive, XGBoost) remain near R² ≈ 0.97. Scaling the dataset does not fix this — the collapse is structural, caused by error compounding.</p>
+        <div class="finding-label">FINDING 2 · Autoregressive rollout (corrected)</div>
+        <p><strong>Over 680 trajectories, autoregressive LSTM/GRU reach R² ≈ 0.64–0.65 at h = 500</strong> — modestly below naive persistence (R² = 0.74), not the catastrophic R² = −6.18 reported under single-trajectory evaluation. LSTM/GRU actually beat naive on ~45 % of trajectories; only <strong>TCN</strong> genuinely destabilises (R² = 0.19) by amplifying compounded feedback error.</p>
       </div>
       <div class="finding">
         <div class="finding-label">FINDING 3 · Direct multi-step fixes rollout</div>

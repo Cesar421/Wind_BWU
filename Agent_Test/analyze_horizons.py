@@ -1,6 +1,13 @@
 """
 Multi-horizon forecast analysis (Round 1 / 2 / 3)
 =================================================
+⚠️ SINGLE-TRAJECTORY (legacy). This script scores each model on ONE 500-step
+trajectory (data["y_future"] = first 500 steps of the LAST test series). The
+h=500 numbers it produces are not representative — see `evaluate_long_horizon.py`
+for the multi-trajectory replacement (P1 fix) and `naive_dense_baseline.py` for
+the dense naive baseline (P2). Kept for the original per-round record.
+
+
 Loads the saved multi-step forecast .npy files for every trained model,
 computes per-horizon metrics against the ground-truth windward Cp series,
 adds a Naive-Persistence baseline, and writes:

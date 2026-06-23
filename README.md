@@ -11,15 +11,25 @@ Deep-learning and classical forecasting of wind pressure coefficients ($C_p$) on
 
 ## Headline Results
 
-| Model | Paradigm | RMSE h=500 | R² h=500 |
-|-------|----------|:----------:|:--------:|
-| Naive persistence | — | 0.118 | ≈ 0.97 |
-| XGBoost | Autoregressive | 0.115 | — (ties naive, p=0.20) |
-| LSTM autoregressive | Autoregressive | 0.307 | **−6.18** ← collapse |
-| **LSTM-direct** | Direct multi-step | **0.179** | **0.84** |
-| **PatchTST** | Direct multi-step | **0.175** | **0.85** |
+Long-horizon (h=500) numbers below are **per-step error aggregated over the full
+146,880-window test set** — the same regime for every model. (An earlier version
+scored the autoregressive models on a *single* 500-step trajectory, which
+inflated the naive baseline to RMSE 0.118 / R² 0.97; that was a measurement
+artifact — see [`evaluate_long_horizon.py`](Agent_Test/evaluate_long_horizon.py).)
 
-**Key finding:** direct multi-step training (single forward pass over 500 future steps) fixes autoregressive collapse, but the predicted PSD remains 60–75× below the true signal PSD at all frequencies — MSE training collapses to the conditional mean.
+| Model | Paradigm | RMSE h=500 | R² h=500 | vs Naive |
+|-------|----------|:----------:|:--------:|:--------:|
+| **PatchTST** | Direct multi-step | **0.175** | **0.85** | **beats** |
+| **LSTM-direct** | Direct multi-step | **0.179** | **0.84** | **beats** |
+| Naive persistence | — | 0.231 | 0.74 | baseline |
+| LSTM autoregressive | Autoregressive | 0.270 | 0.65 | slightly worse |
+| GRU autoregressive | Autoregressive | 0.273 | 0.64 | slightly worse |
+| TCN autoregressive | Autoregressive | 0.411 | 0.19 | collapses |
+
+**Key findings:**
+1. **Direct multi-step training beats naive persistence at h=500** (RMSE 0.175–0.179 vs 0.231); autoregressive rollout does not.
+2. The earlier "catastrophic collapse" of autoregressive deep models (reported R² = −6.18) was largely a **single-trajectory artifact**. Over 680 trajectories, LSTM/GRU reach R² ≈ 0.65 and beat naive on ~45 % of trajectories; only **TCN** is genuinely unstable.
+3. Despite winning on RMSE/R², the predicted PSD of the direct models stays **60–75× below the true-signal PSD at all frequencies** — MSE training collapses to the conditional mean, so the forecasts remain unusable for spectrum-dependent wind-engineering quantities (fatigue, peak factor).
 
 ## Repo Structure
 

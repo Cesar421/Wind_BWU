@@ -83,26 +83,45 @@ vector in one forward pass, MSE over the whole vector. More expensive head
 
 ### 0.5 Headline results
 
+> **⚠️ Correction (multi-trajectory re-evaluation).** Sections 4 and 6.b.2 below
+> were originally computed on a **single** 500-step trajectory (the first 500
+> steps of the last test series). That inflated the naive baseline (RMSE 0.118 /
+> R² ≈ 0.97 was an artifact of one near-flat trajectory) and the deep-model
+> "collapse" (R² = −6.18). Re-evaluating every autoregressive model over **680
+> trajectories** (`evaluate_long_horizon.py`) and the naive baseline over the
+> **full 146,880-window test set** (`naive_dense_baseline.py`) gives the
+> corrected h = 500 numbers used in this headline. New artefacts:
+> `results/long_horizon_multitraj_round3.csv`,
+> `results/long_horizon_significance_round3.csv`,
+> `results/naive_dense_metrics_round3.csv`.
+
 **Single-step ($h=1$) is essentially solved.** Every reasonable model (R3)
 reaches RMSE ≈ 0.04 and R² > 0.99. Differences here are not informative.
 
-**Autoregressive rollout to $h = 500$ collapses catastrophically** for
-recurrent and convolutional deep models (LSTM R² = −6.18, TCN R² ≈ −20),
-but classical baselines (naive, Ridge, XGBoost) remain near R² ≈ 0.97
-because they cannot compound large errors. **Scaling the dataset (R1 → R3)
-does not fix this** — the collapse is structural.
+**At $h = 500$ (per-step, full-test-set / multi-trajectory regime):**
 
-**Direct multi-step (B.4 + C.6) restores variance-tracking.** Identical LSTM
+| Model | RMSE | R² | vs naive |
+|---|---:|---:|---|
+| PatchTST (direct) | **0.175** | **0.85** | **beats naive** |
+| LSTM-direct | **0.179** | **0.84** | **beats naive** |
+| Naive persistence | 0.231 | 0.74 | baseline |
+| LSTM (autoreg) | 0.270 | 0.65 | beats naive on 44 % of traj. |
+| GRU (autoreg) | 0.273 | 0.64 | beats naive on 47 % of traj. |
+| TCN (autoreg) | 0.411 | 0.19 | genuinely unstable |
+
+**Direct multi-step (B.4 + C.6) beats naive persistence.** Identical LSTM
 backbone trained with `Linear(128 → 500)` head + full-vector MSE achieves
-RMSE 0.179 / R² 0.84 at $h = 500$. PatchTST under the same recipe lands at
-RMSE 0.175 / R² 0.85. **Two radically different architectures collapse to
-the same ceiling.**
+RMSE 0.179 / R² 0.84 at $h = 500$; PatchTST lands at RMSE 0.175 / R² 0.85.
+Both clear the naive bar (0.231 / 0.74). **Two radically different
+architectures converge to the same ceiling.**
 
-**Diebold-Mariano (B.5) reframes the ranking.** At $h = 500$: naive vs.
-XGBoost is a statistical tie ($p = 0.20$); naive beats every deep
-autoregressive model significantly ($p < 10^{-3}$). The fair comparison at
-long horizons is therefore not *model A vs. model B* but **any model vs.
-persistence**.
+**Autoregressive rollout is competitive, not catastrophic.** Over 680
+trajectories the recurrent models (LSTM/GRU) reach R² ≈ 0.64–0.65 — modestly
+below naive (0.74) but beating it on ~45 % of individual trajectories. Naive
+keeps a small, statistically significant aggregate edge over them (paired
+Wilcoxon $p < 10^{-3}$, but a ~6 % median-RMSE effect). Only **TCN** truly
+destabilises (R² = 0.19) by amplifying compounded feedback error. The
+earlier "catastrophic R² = −6 collapse" was a single-trajectory artifact.
 
 **Spectral analysis (F) reframes again — and is the most important finding.**
 At $h = 500$, the predicted PSD is **60–75× smaller than the true PSD at
@@ -240,6 +259,13 @@ RMSE (denormalised, lower is better):
 ---
 
 ## 4. Autoregressive multi-horizon results
+
+> **⚠️ Single-trajectory results.** The tables in this section come from one
+> 500-step trajectory per round and are superseded for h = 500 by the
+> multi-trajectory numbers in §0.5. They are retained as the original per-round
+> record. In particular the R3 h = 500 RMSE here (naive 0.118, LSTM 0.307,
+> TCN 0.667) reflects one near-flat trajectory; the representative values are
+> naive 0.231, LSTM 0.270, TCN 0.411 (see `long_horizon_multitraj_round3.csv`).
 
 RMSE at h = 500 (denormalised, lower is better):
 
@@ -385,6 +411,15 @@ returns the full 500-step trajectory.
    sharpness.** Not yet tested.
 
 ### 6.b.2 Diebold-Mariano statistical test (B.5)
+
+> **⚠️ Single-trajectory caveat.** The DM table below runs on the loss
+> differential of **one** 500-step trajectory (n = 500 autocorrelated steps),
+> so "naive ties XGBoost / beats every deep model" describes that one
+> realisation, not generalisation. The robust replacement is the
+> cross-trajectory test in §0.5 (paired Wilcoxon + win-rate over 680
+> trajectories, `long_horizon_significance_round3.csv`): naive keeps a small
+> significant edge over autoregressive LSTM/GRU but loses to both direct
+> multi-step models, and LSTM/GRU beat naive on ~45 % of trajectories.
 
 **Motivation.** The R3 single-step results (Section 3) and h = 500 results
 (Section 4) show numerical differences between models that may or may not be
@@ -738,12 +773,15 @@ in `Agent_Papers/wptse_net/README.md`)
 3. **Tree-based methods need data diversity to be useful.** They are not a
    reasonable baseline on a single-building experiment.
 
-4. **Universal $C_p$ models are still autoregressively limited.** R3 (340
-   series) shows that scaling the training set, with no architectural change,
-   does not yet yield a model that beats naive persistence at h = 500. This
-   motivates future work on (a) direct multi-step training (vs. teacher-forced
-   single-step), (b) hierarchical / mixture-of-experts conditioned on geometry,
-   (c) physics-informed regularisation.
+4. **Autoregressive $C_p$ models are competitive with, but do not beat, naive
+   persistence at h = 500.** Re-evaluated over 680 trajectories (§0.5), LSTM/GRU
+   reach R² ≈ 0.64–0.65 vs naive 0.74 and beat naive on ~45 % of trajectories —
+   a small, significant aggregate deficit, *not* the catastrophic collapse the
+   single-trajectory analysis suggested. The model that *does* beat naive at
+   h = 500 is direct multi-step (RMSE 0.175–0.179 vs 0.231). This motivates
+   future work on (a) hierarchical / mixture-of-experts conditioned on geometry,
+   (b) physics-informed regularisation, (c) scheduled sampling to close the
+   remaining autoregressive gap.
 
 5. **The long-horizon collapse is an objective-function problem, not an
    architectural one.** The post-R3 experiment (Section 6.b.1) demonstrates
@@ -753,14 +791,15 @@ in `Agent_Papers/wptse_net/README.md`)
    **never use teacher-forced single-step training when the deployment task
    is long-horizon forecasting.**
 
-6. **Statistical testing changes the headline result.** The Diebold-Mariano
-   analysis (Section 6.b.2) shows that, at h = 500, the gap between naive
-   persistence and the best classical model (XGBoost) is *not statistically
-   significant* (p = 0.20), while the gap between naive and every deep model
-   *is* significant — in favour of naive. The fair comparison at long
-   horizons is therefore not "LSTM vs TCN vs Ridge" but "any model vs.
-   naive persistence", and only the direct multi-step LSTM clears that bar
-   in terms of R² (variance tracking).
+6. **Statistical testing must be done over many trajectories, not one.** The
+   original single-trajectory Diebold-Mariano (Section 6.b.2) made naive look
+   dominant (it "beat every deep model"); that was an artifact of one near-flat
+   trajectory. The cross-trajectory test (§0.5, 680 trajectories) shows naive
+   keeps only a *small* significant edge over autoregressive LSTM/GRU (~6 %
+   median RMSE, beaten on ~45 % of trajectories) and **loses to both direct
+   multi-step models**. The methodological take-away stands and is sharpened:
+   always report long-horizon significance over a *population* of trajectories
+   with a paired test, never a single rollout.
 
 7. **Two independent architectures hit the same long-horizon floor, for the
    same reason.** Both the LSTM-direct (B.4, recurrence) and the PatchTST
