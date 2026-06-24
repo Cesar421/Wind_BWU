@@ -21,14 +21,18 @@ artifact — see [`evaluate_long_horizon.py`](Agent_Test/evaluate_long_horizon.p
 |-------|----------|:----------:|:--------:|:--------:|
 | **PatchTST** | Direct multi-step | **0.175** | **0.85** | **beats** |
 | **LSTM-direct** | Direct multi-step | **0.179** | **0.84** | **beats** |
+| **XGBoost** | Autoregressive | **0.209** | **0.79** | **beats** (DM +12.7) |
 | Naive persistence | — | 0.231 | 0.74 | baseline |
+| Ridge | Autoregressive | 0.256 | 0.69 | slightly worse (stable) |
 | LSTM autoregressive | Autoregressive | 0.270 | 0.65 | slightly worse |
 | GRU autoregressive | Autoregressive | 0.273 | 0.64 | slightly worse |
 | TCN autoregressive | Autoregressive | 0.411 | 0.19 | collapses |
 
+(Classical rows re-fit at stride 30; Random Forest multi-trajectory re-fit still pending. Naive is the exact 146,880-window value; the other rows use 680 trajectories.)
+
 **Key findings:**
-1. **Direct multi-step training beats naive persistence at h=500** (RMSE 0.175–0.179 vs 0.231); autoregressive rollout does not.
-2. The earlier "catastrophic collapse" of autoregressive deep models (reported R² = −6.18) was largely a **single-trajectory artifact**. Over 680 trajectories, LSTM/GRU reach R² ≈ 0.65 and beat naive on ~45 % of trajectories; only **TCN** is genuinely unstable.
+1. **Three models beat naive persistence at h=500** — both direct multi-step models (PatchTST 0.175, LSTM-direct 0.179) and, more surprisingly, **autoregressive XGBoost** (0.209, beats naive on 53 % of trajectories, DM +12.7).
+2. The earlier "catastrophic collapse" of autoregressive deep models (reported R² = −6.18) and "Ridge diverges to ~10⁴" were both **single-trajectory artifacts**. Over 680 trajectories, LSTM/GRU reach R² ≈ 0.65 (beating naive on ~45 % of trajectories), Ridge is stable (0.256), and only **TCN** is genuinely unstable.
 3. Despite winning on RMSE/R², the predicted PSD of the direct models stays **60–75× below the true-signal PSD at all frequencies** — MSE training collapses to the conditional mean, so the forecasts remain unusable for spectrum-dependent wind-engineering quantities (fatigue, peak factor).
 
 ## Repo Structure

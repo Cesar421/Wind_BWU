@@ -104,10 +104,18 @@ reaches RMSE ≈ 0.04 and R² > 0.99. Differences here are not informative.
 |---|---:|---:|---|
 | PatchTST (direct) | **0.175** | **0.85** | **beats naive** |
 | LSTM-direct | **0.179** | **0.84** | **beats naive** |
+| XGBoost (autoreg) | **0.209** | **0.79** | **beats naive** (DM +12.7, wins 53 % of traj.) |
 | Naive persistence | 0.231 | 0.74 | baseline |
+| Ridge (autoreg) | 0.256 | 0.69 | stable, slightly worse (no divergence) |
 | LSTM (autoreg) | 0.270 | 0.65 | beats naive on 44 % of traj. |
 | GRU (autoreg) | 0.273 | 0.64 | beats naive on 47 % of traj. |
 | TCN (autoreg) | 0.411 | 0.19 | genuinely unstable |
+
+(Classical rows re-fit at stride 30 for memory; Random Forest re-fit still
+pending. Naive is the exact 146,880-window value; other rows use 680
+trajectories. **XGBoost beating naive and Ridge not diverging are two further
+single-trajectory artifacts corrected here** — the legacy §4 reported XGBoost as
+a tie and Ridge diverging to ~10⁴.)
 
 **Direct multi-step (B.4 + C.6) beats naive persistence.** Identical LSTM
 backbone trained with `Linear(128 → 500)` head + full-vector MSE achieves

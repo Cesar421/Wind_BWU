@@ -176,6 +176,9 @@ def main():
     ap.add_argument("--traj-per-series", type=int, default=2)
     ap.add_argument("--classical", action="store_true",
                     help="re-fit Ridge + XGBoost and include them (heavy load)")
+    ap.add_argument("--classical-step", type=int, default=30,
+                    help="window stride for the classical re-fit train set "
+                         "(larger = fewer windows = less RAM; default 30)")
     ap.add_argument("--rf", action="store_true",
                     help="also re-fit RandomForest (~2 h on CPU)")
     args = ap.parse_args()
@@ -202,18 +205,29 @@ def main():
         preds_d[name] = rollout(dl_step_fn(model), seeds, H) * sigma_w + mu_w
 
     if args.classical:
+        import gc
         from train_utils import get_data
         from classical_utils import flatten
-        print("  loading R3 windows for classical re-fit (heavy) ...")
-        data = get_data("all", SEQ, 10, 1)
-        Xtr = flatten(data["X_train"]); ytr = data["y_train"].squeeze().astype(np.float32)
-        from ridge.models.ridge import build as build_ridge
+        # Coarser stride keeps the windowed train set small enough to fit in RAM
+        # alongside the tree-builder's internal copy (avoids silent OOM kills on
+        # 16 GB machines). 776k windows @ step10 -> ~260k @ step30.
+        print(f"  loading R3 train windows for classical re-fit "
+              f"(step={args.classical_step}) ...")
+        data = get_data("all", SEQ, args.classical_step, 1)
+        Xtr = flatten(data["X_train"])
+        ytr = data["y_train"].squeeze().astype(np.float32)
+        del data                      # free X_val / X_test / X_train original
+        gc.collect()
+        print(f"  Xtr {Xtr.shape}  ({Xtr.nbytes/1e9:.2f} GB)")
+
         import importlib
+        from ridge.models.ridge import build as build_ridge
         classical = {"ridge": build_ridge()}
         xgb_mod = importlib.import_module("xgboost")
         classical["xgboost"] = xgb_mod.XGBRegressor(
             n_estimators=500, max_depth=6, learning_rate=0.1, subsample=0.8,
-            colsample_bytree=0.8, tree_method="hist", random_state=42, n_jobs=-1)
+            colsample_bytree=0.8, tree_method="hist", max_bin=128,
+            random_state=42, n_jobs=-1)
         if args.rf:
             from random_forest.models.random_forest import build as build_rf
             classical["random_forest"] = build_rf()
@@ -223,6 +237,8 @@ def main():
             print(f"  rolling out {cname} ...")
             preds_d[cname] = rollout(classical_step_fn(est), seeds, H,
                                      chunk=4096) * sigma_w + mu_w
+        del Xtr, ytr
+        gc.collect()
 
     # ── per-horizon table (per-step @ h, aggregated over all trajectories) ──
     rows = []

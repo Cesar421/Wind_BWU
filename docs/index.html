@@ -374,7 +374,7 @@
 <section id="results">
   <div class="container">
     <div class="section-title">Results - h = 500 (Round 3, multi-trajectory)</div>
-    <p class="section-sub">RMSE and R2 at step h = 500, aggregated over the full 146,880-window test set (denormalised windward C<sub>p</sub>) - the same regime for every model. An earlier single-trajectory evaluation inflated the naive baseline (RMSE 0.118 / R2 0.97) and the deep-model "collapse" (R2 -6.18); those were measurement artifacts. Lower RMSE = better; R2 closer to 1 = better. Classical rows (*) still show legacy single-trajectory values pending re-fit.</p>
+    <p class="section-sub">RMSE and R2 at step h = 500, aggregated over the full 146,880-window test set (denormalised windward C<sub>p</sub>) - the same regime for every model. An earlier single-trajectory evaluation inflated the naive baseline (RMSE 0.118 / R2 0.97) and the deep-model "collapse" (R2 -6.18); those were measurement artifacts. Lower RMSE = better; R2 closer to 1 = better. Random Forest (*) still shows a legacy single-trajectory value (re-fit pending); Ridge and XGBoost now use the corrected multi-trajectory regime.</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -399,13 +399,13 @@
             <td><span class="tag tag-blue">Baseline</span></td>
           </tr>
           <tr>
-            <td>Ridge *</td>
+            <td>Ridge</td>
             <td>Autoreg</td>
             <td>0.0224</td>
-            <td>~10^4 </td>
-            <td>diverges</td>
-            <td>-</td>
-            <td><span class="tag tag-red">Unstable</span></td>
+            <td>0.256</td>
+            <td>0.69</td>
+            <td>p &lt; 0.001 (naive wins)</td>
+            <td><span class="tag tag-orange">Underperforms</span></td>
           </tr>
           <tr>
             <td>Random Forest *</td>
@@ -417,13 +417,13 @@
             <td><span class="tag tag-orange">Pending re-fit</span></td>
           </tr>
           <tr>
-            <td class="bold">XGBoost *</td>
+            <td class="bold">XGBoost</td>
             <td>Autoreg</td>
             <td>0.0242</td>
-            <td>0.115</td>
-            <td>-</td>
-            <td>legacy single-traj</td>
-            <td><span class="tag tag-orange">Pending re-fit</span></td>
+            <td>0.209</td>
+            <td>0.79</td>
+            <td>beats naive (DM +12.7)</td>
+            <td><span class="tag tag-green">Beats naive</span></td>
           </tr>
           <tr>
             <td>LSTM</td>
@@ -474,7 +474,7 @@
       </table>
     </div>
     <p style="margin-top:14px;font-size:0.8rem;color:var(--text-muted)">
-      * Ridge / Random Forest / XGBoost still show legacy <em>single-trajectory</em> h = 500 values (multi-trajectory re-fit pending); all other rows use the corrected 146,880-window regime. High R2 at h = 500 does not mean spectral fidelity. See <a href="#findings">Spectral Findings</a>.
+      * Random Forest still shows a legacy <em>single-trajectory</em> h = 500 value (multi-trajectory re-fit pending, ~2 h on CPU); all other rows use the corrected 680-trajectory / 146,880-window regime. High R2 at h = 500 does not mean spectral fidelity. See <a href="#findings">Spectral Findings</a>.
     </p>
   </div>
 </section>
@@ -491,7 +491,7 @@
       </div>
       <div class="finding danger">
         <div class="finding-label">FINDING 2 | Autoregressive rollout (corrected)</div>
-        <p><strong>Over 680 trajectories, autoregressive LSTM/GRU reach R2 ~ 0.64-0.65 at h = 500</strong> - modestly below naive persistence (R2 = 0.74), not the catastrophic R2 = -6.18 reported under single-trajectory evaluation. LSTM/GRU actually beat naive on ~45 % of trajectories; only <strong>TCN</strong> genuinely destabilises (R2 = 0.19) by amplifying compounded feedback error.</p>
+        <p><strong>Over 680 trajectories, autoregressive LSTM/GRU reach R2 ~ 0.64-0.65 at h = 500</strong> - modestly below naive persistence (R2 = 0.74), not the catastrophic R2 = -6.18 reported under single-trajectory evaluation. LSTM/GRU actually beat naive on ~45 % of trajectories, and <strong>XGBoost beats naive outright</strong> (RMSE 0.209 vs 0.231, DM +12.7); Ridge stays stable (0.256, no divergence). Only <strong>TCN</strong> genuinely destabilises (R2 = 0.19) by amplifying compounded feedback error.</p>
       </div>
       <div class="finding">
         <div class="finding-label">FINDING 3 | Direct multi-step fixes rollout</div>
