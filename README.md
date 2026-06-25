@@ -45,6 +45,8 @@ Data/            ← TPU BDH raw data (gitignored)
 docs/            ← GitHub Pages website
 ```
 
+📚 **All docs in one place:** see [DOCS.md](DOCS.md) (documentation index).
+
 ## Reproduce
 
 ```powershell
