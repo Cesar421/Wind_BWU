@@ -94,7 +94,7 @@ wind incidence angles, and terrain exposure categories.
 | Estimated runtime | 2–4 hours on RTX A4000 |
 | Settings flag | `use_all_buildings: false`, `default_building_ratio: "2_1_3"` |
 
-**Detailed prompt to run:** see [`round1_prompt.md`](./round1_prompt.md)
+**Detailed prompt to run:** see [`round1_prompt.md`](../Agent_Test/Old_Files_Outdated/round1_prompt.md) *(archived — Round 1 complete)*
 
 **Success criteria for proceeding to Round 2:**
 - All 6 models train without crashes (no NaN losses)
