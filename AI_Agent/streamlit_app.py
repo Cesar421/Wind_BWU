@@ -136,11 +136,12 @@ with st.sidebar:
 st.title("Wind Pressure Cp - Forecasting Dashboard")
 st.caption("All trained models - TPU BDH Benchmark - No retraining")
 
-(tab_overview, tab_horizon, tab_longh, tab_model,
+(tab_overview, tab_horizon, tab_longh, tab_live, tab_model,
  tab_direct, tab_dm, tab_cross, tab_plots, tab_agent) = st.tabs([
     "Summary",
     "Multi-Horizon",
     "Long-horizon (corrected)",
+    "Live Forecast",
     "Per Model",
     "LSTM-direct / PatchTST",
     "Diebold-Mariano",
@@ -345,6 +346,111 @@ with tab_longh:
             fp = AT_RESULTS / "plots_cross_round" / p
             if fp.exists():
                 st.image(str(fp), caption=cap, use_container_width=True)
+
+
+# ===========================================================================
+# TAB — LIVE FORECAST (direct multi-step model, loaded from checkpoint, CPU)
+# ===========================================================================
+with tab_live:
+    st.subheader("Live forecast — direct multi-step model (h = 500)")
+    st.caption(
+        "Pick a TPU BDH test segment as the 100-sample seed; the model returns "
+        "the next 500 steps in a single forward pass. Expected behaviour: the "
+        "forecast tracks the slow envelope but is smooth — at 0.5 s lead the "
+        "MSE-trained model outputs the conditional mean (see Spectral Findings)."
+    )
+
+    import importlib.util
+    if str(AT) not in sys.path:
+        sys.path.insert(0, str(AT))
+
+    DIRECT_SPECS = {
+        "LSTM-direct": (AT / "lstm" / "models" / "lstm.py", "PureLSTM",
+                        dict(n_features=4, hidden_size=256, num_layers=2,
+                             dropout=0.2, fc_hidden=128, fc_dropout=0.3, horizon=500),
+                        AT / "lstm" / "checkpoints" / "lstm_direct_h500.pt"),
+        "PatchTST":    (AT / "patchtst" / "models" / "patchtst.py", "PatchTST",
+                        dict(n_features=4, seq_len=100, horizon=500),
+                        AT / "patchtst" / "checkpoints" / "patchtst_h500_r3.pt"),
+    }
+
+    @st.cache_resource(show_spinner="Loading model checkpoint …")
+    def _load_direct(choice):
+        path, cls_name, kwargs, ckpt = DIRECT_SPECS[choice]
+        if not ckpt.exists():
+            return None, f"Checkpoint missing: {ckpt}"
+        try:
+            import torch
+            spec = importlib.util.spec_from_file_location(f"live_{choice}", path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            model = getattr(mod, cls_name)(**kwargs)
+            state = torch.load(str(ckpt), map_location="cpu", weights_only=False)
+            model.load_state_dict(state.get("state_dict", state))
+            model.eval()
+            return model, None
+        except Exception as e:  # noqa: BLE001
+            return None, f"{type(e).__name__}: {e}"
+
+    @st.cache_data(show_spinner="Building test seeds (first time ~20 s) …")
+    def _seeds():
+        from data_loader import build_test_trajectories
+        tr = build_test_trajectories(seq_length=100, H=500, traj_per_series=1)
+        return (tr["seeds"], tr["futures"],
+                float(tr["mu"][0]), float(tr["sigma"][0]), tr["meta"])
+
+    choice = st.selectbox("Model", list(DIRECT_SPECS.keys()), key="live_model")
+    model, err = _load_direct(choice)
+    if model is None:
+        st.error(
+            f"{err}\n\nThe direct checkpoints are gitignored. Copy "
+            "`lstm_direct_h500.pt` / `patchtst_h500_r3.pt` into "
+            "`Agent_Test/<model>/checkpoints/` (or retrain on GPU)."
+        )
+    else:
+        seeds, futures, mu_w, sigma_w, meta = _seeds()
+        n = seeds.shape[0]
+        idx = st.slider("Test segment (building-angle trajectory)", 0, n - 1, 0,
+                        key="live_idx")
+        a, r, ang, start = meta[idx]
+        st.write(f"**Seed:** {a} / ratio {r} / yaw {ang}° — start sample {start}")
+
+        import torch
+        with torch.no_grad():
+            x = torch.from_numpy(seeds[idx][None]).float()      # (1, 100, 4)
+            out = model(x).cpu().numpy().reshape(-1)[:500]      # (500,)
+        pred = out * sigma_w + mu_w
+        true = futures[idx] * sigma_w + mu_w
+        seed_w = seeds[idx][:, 0] * sigma_w + mu_w               # past windward
+
+        rmse = float(np.sqrt(np.mean((true - pred) ** 2)))
+        ss = float(np.sum((true - pred) ** 2))
+        st_tot = float(np.sum((true - true.mean()) ** 2))
+        r2 = 1 - ss / st_tot if st_tot > 0 else float("nan")
+        c1, c2 = st.columns(2)
+        c1.metric("RMSE (h=500 trajectory)", f"{rmse:.4f}")
+        c2.metric("R²", f"{r2:.3f}")
+
+        past_x = np.arange(-100, 0)
+        fut_x = np.arange(0, 500)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=past_x, y=seed_w, name="Seed (past 100)",
+                                 line=dict(color="#888")))
+        fig.add_trace(go.Scatter(x=fut_x, y=true, name="True future",
+                                 line=dict(color="royalblue")))
+        fig.add_trace(go.Scatter(x=fut_x, y=pred, name=f"{choice} forecast",
+                                 line=dict(color="tomato", dash="dash")))
+        fig.add_vline(x=0, line_dash="dot", line_color="white", opacity=0.4)
+        fig.update_layout(template="plotly_dark", height=460,
+                          xaxis_title="Step relative to forecast origin",
+                          yaxis_title="Windward Cp",
+                          title=f"{choice} — 500-step forecast from a real seed")
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(
+            "Smooth forecast = the spectral-collapse phenomenon: high R² / "
+            "low RMSE, but the turbulent fluctuations are not reproduced. Good "
+            "for the mean trend, not for fatigue / peak-factor use."
+        )
 
 
 # ===========================================================================
