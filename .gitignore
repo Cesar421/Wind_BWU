@@ -12,6 +12,10 @@ __pycache__/
 *.pt
 *.pth
 
+# Brought-over / downloaded checkpoint bundles (large, regenerable by retraining)
+checkpoints-*/
+**/checkpoints/*.npy
+
 # Large prediction arrays (>50 MB)
 **/results/*_preds.npy
 **/results/*_trues.npy
