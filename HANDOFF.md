@@ -1,5 +1,10 @@
 # HANDOFF — read this first (continuing on the GPU machine)
 
+> **⚠️ SUPERSEDED (2026-10-21) — do not run the pending work below.** The Random
+> Forest re-fit is done (`Agent_Test/results/long_horizon_multitraj_round3.csv`), and
+> the direct-model retrain is no longer needed: the current GPU plan retrains its own
+> baseline. Current instructions: the latest file in [`Handoffs/`](Handoffs/README.md).
+
 > **For a fresh Claude Code session:** you are continuing the Wind_BWU /
 > `Wind_ML_TimeSeries` (thesis) project. This file is the bridge between machines
 > (the previous chat does not sync; git does). Read this, then do the **Pending

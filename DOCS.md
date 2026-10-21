@@ -7,8 +7,9 @@ GitHub, Claude Code, and relative links keep working) — this is just the map.
 | Doc | What it is |
 |-----|------------|
 | [README.md](README.md) | Project overview + headline results |
-| [CLAUDE.md](CLAUDE.md) | Orientation auto-loaded by Claude Code; points to the handoff |
-| [HANDOFF.md](HANDOFF.md) | Cross-machine handoff — pending GPU work + exact commands |
+| [CLAUDE.md](CLAUDE.md) | Orientation auto-loaded by Claude Code; points to the current handoff |
+| [Handoffs/](Handoffs/README.md) | Cross-machine handoffs, one dated file each — **current: GPU plan 2026-10-21** (longer window + statistical loss) |
+| [HANDOFF.md](HANDOFF.md) | Previous handoff (June 2026) — superseded |
 | [CHANGELOG.md](CHANGELOG.md) | Inventory of the multi-trajectory evaluation correction |
 
 ## Results & methodology
