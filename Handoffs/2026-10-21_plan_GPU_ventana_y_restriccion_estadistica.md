@@ -1,9 +1,12 @@
 # Plan GPU — ventana de entrada + restricción estadística (PatchTST)
 
-> **Para quien lo ejecute (tú, o una sesión nueva de Claude Code en la máquina GPU):**
-> este archivo es autocontenido. Léelo entero antes de empezar. Se escribió el
-> 2026-10-21 en la máquina sin GPU, después de una revisión completa del proyecto.
-> Todos los números están medidos; donde algo es una hipótesis, se dice.
+> **Si eres la persona en la máquina GPU:** empieza por la sección **«Arranque»**, justo
+> debajo del resumen.
+> **Si eres una sesión de Claude Code:** lee el archivo entero; tu checklist es la sección 5.
+>
+> Este archivo es autocontenido. Se escribió el 2026-10-21 en la máquina sin GPU, después
+> de una revisión completa del proyecto. Todos los números están medidos; donde algo es
+> una hipótesis, se dice.
 >
 > El `HANDOFF.md` de la raíz (junio 2026) está **reemplazado**. No ejecutes lo que pide.
 
@@ -19,6 +22,75 @@ Tres fases de GPU, todas con **PatchTST directo** (el mejor modelo actual):
 
 Más dos fases opcionales: condicionar en los estadísticos de la serie y un test
 leave-buildings-out. **Unas 3–4.5 h de GPU en total.**
+
+---
+
+## Arranque — para ti, paso a paso
+
+**1. Traer los cambios.** Si estás leyendo esto en la máquina GPU, ya está hecho.
+```powershell
+cd <ruta del repo>\Wind_BWU
+git status      # comprueba que no haya cambios locales sin guardar
+git pull
+```
+Si `git pull` se queja de cambios locales, haz antes `git stash`.
+
+**2. Comprobar la GPU y el entorno**
+```powershell
+conda env list
+conda activate <el entorno que tenga torch con CUDA>
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+```
+Tiene que imprimir `True NVIDIA RTX A4000`. Si sale `False`, ese entorno tiene torch sin
+CUDA y hay que usar otro. (El entorno `ML_Cesar` del README no existe.)
+
+**3. Que el PC no se suspenda.** Son 3–4 h de entrenamiento, y si Windows entra en
+suspensión, el entrenamiento muere:
+```powershell
+powercfg /change standby-timeout-ac 0     # para restaurarlo después: ... 30
+```
+
+**4. Abrir Claude Code en la carpeta del repo** (VS Code con la carpeta abierta, o
+`claude` en la terminal). El `CLAUDE.md` se carga solo y apunta a este archivo.
+
+**5. Pegarle este mensaje:**
+
+> Lee entero `Handoffs/2026-10-21_plan_GPU_ventana_y_restriccion_estadistica.md` y sigue
+> su checklist (sección 5). Implementa el código de la sección 4, haz la Fase 0 y la
+> prueba de humo en GPU (1 época por cada configuración de la Fase 1), y **para ahí**:
+> enséñame la memoria usada, el tiempo por época y la primera fila del CSV antes de
+> lanzar las Fases 1 y 2.
+
+Ese "para ahí" es importante: así confirmas que todo funciona antes de gastar casi 2 h de GPU.
+
+**6. Lanzar las Fases 1 y 2** (~1h40m, sin supervisión). Cuando la prueba de humo salga
+bien, lánzalo en **una ventana de PowerShell aparte**, no dentro de Claude. Si se cierra
+VS Code o la sesión, un proceso arrancado desde ahí puede morir.
+```powershell
+cd <ruta del repo>\Wind_BWU\Agent_Test
+conda activate <entorno>
+$env:KMP_DUPLICATE_LIB_OK="TRUE"
+.\run_gpu_plan.ps1
+```
+El script `run_gpu_plan.ps1` lo crea Claude en el paso 5. Si sale un error de política
+de ejecución: `powershell -ExecutionPolicy Bypass -File .\run_gpu_plan.ps1`.
+
+**7. Cuando termine,** vuelve a Claude:
+
+> Las Fases 1 y 2 terminaron. Analiza los resultados en
+> `Agent_Test/results/gpu_plan_2026-10/` y hazme la curva de Pareto.
+
+Con eso decides el λ y lanzas la Fase 4 (~1 h), y las fases 3 y 5 si hay tiempo.
+
+**8. Devolver los resultados.** Claude escribe `Handoffs/AAAA-MM-DD_resultados_GPU.md` y
+hace commit + push (sección 8). En la máquina sin GPU basta con un `git pull`.
+
+**Si algo falla:**
+- Si la pantalla parpadea o sale "el controlador de pantalla dejó de responder", es un
+  TDR, el mismo que mató a LSTM-direct. PatchTST con batch 128 no lo tuvo, pero si pasa,
+  dile a Claude que baje el batch.
+- Si en la prueba de humo la memoria no alcanza, la Fase 4 (sección 6) trae la solución:
+  `--step 50` y evaluación serie a serie.
 
 ---
 
@@ -204,7 +276,7 @@ recalibra λ\*) o baja lr a 5e-4.
 
 ---
 
-## 5. Cómo empezar (checklist)
+## 5. Checklist de ejecución (para Claude)
 
 1. `git pull` en la máquina GPU.
 2. Activa un entorno con torch + CUDA, sklearn, scipy, pandas y matplotlib, y comprueba
