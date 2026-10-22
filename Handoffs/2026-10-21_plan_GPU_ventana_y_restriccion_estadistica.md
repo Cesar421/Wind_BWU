@@ -1,5 +1,9 @@
 # Plan GPU — ventana de entrada + restricción estadística (PatchTST)
 
+> ✅ **COMPLETADO el 2026-10-22.** Los resultados, las desviaciones respecto a este plan y los
+> siguientes pasos están en [`2026-10-22_resultados_GPU.md`](2026-10-22_resultados_GPU.md).
+> No vuelvas a ejecutar este plan.
+
 > **Si eres la persona en la máquina GPU:** empieza por la sección **«Arranque»**, justo
 > debajo del resumen.
 > **Si eres una sesión de Claude Code:** lee el archivo entero; tu checklist es la sección 5.

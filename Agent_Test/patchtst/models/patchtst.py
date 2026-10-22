@@ -19,17 +19,24 @@ import torch.nn as nn
 class PatchEmbedding(nn.Module):
     """Slice (B, L, C) into overlapping patches and project to d_model."""
 
-    def __init__(self, n_features, seq_len, patch_len=16, stride=8, d_model=128):
+    def __init__(self, n_features, seq_len, patch_len=16, stride=8, d_model=128,
+                 align_end=False):
         super().__init__()
         self.patch_len = patch_len
         self.stride = stride
         self.n_patches = (seq_len - patch_len) // stride + 1
+        # Patches start at index 0, so (seq_len - patch_len) % stride samples
+        # stay uncovered — by default the MOST RECENT ones (4 at seq 100,
+        # 16/8). align_end drops them from the oldest end instead; the default
+        # keeps the original behaviour for existing checkpoints.
+        self.skip = (seq_len - patch_len) % stride if align_end else 0
         self.proj = nn.Linear(patch_len * n_features, d_model)
         # Learnable positional embedding
         self.pos = nn.Parameter(torch.zeros(1, self.n_patches, d_model))
         nn.init.trunc_normal_(self.pos, std=0.02)
 
     def forward(self, x):                        # x: (B, L, C)
+        x = x[:, self.skip:]
         # unfold: (B, n_patches, patch_len, C)
         x = x.unfold(dimension=1, size=self.patch_len, step=self.stride)
         x = x.permute(0, 1, 3, 2).contiguous()   # (B, n_patches, patch_len, C)
@@ -77,6 +84,9 @@ class PatchTST(nn.Module):
     patch_len, stride : int
         Patching geometry.
     d_model, n_heads, d_ff, n_layers, dropout : transformer hyper-params.
+    align_end : bool
+        Align the patches to the end of the window so the most recent samples
+        are always seen (see PatchEmbedding). Default False = original model.
     """
 
     def __init__(
@@ -91,9 +101,11 @@ class PatchTST(nn.Module):
         d_ff=256,
         n_layers=3,
         dropout=0.1,
+        align_end=False,
     ):
         super().__init__()
-        self.embed = PatchEmbedding(n_features, seq_len, patch_len, stride, d_model)
+        self.embed = PatchEmbedding(n_features, seq_len, patch_len, stride, d_model,
+                                    align_end)
         self.layers = nn.ModuleList([
             TransformerEncoderLayer(d_model, n_heads, d_ff, dropout)
             for _ in range(n_layers)

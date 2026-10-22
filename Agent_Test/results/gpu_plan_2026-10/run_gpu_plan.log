@@ -1,0 +1,57 @@
+﻿[2026-10-21 19:11:02] ===== GPU plan, protocol B (python: C:\Users\verwalter\anaconda3\envs\ML_Cesar\python.exe) =====
+[2026-10-21 19:11:02] ----- Phase 1: look-back window (MSE, R2) -----
+[2026-10-21 19:11:02] train_patchtst_v2.py --scope round2 --tag 1a --seq 100 --patch-len 16 --patch-stride 8
+[2026-10-21 19:30:07]   done in 19,1 min
+[2026-10-21 19:30:07] train_patchtst_v2.py --scope round2 --tag 1b --seq 1000 --patch-len 64 --patch-stride 32
+[2026-10-21 19:34:31]   done in 4,4 min
+[2026-10-21 19:34:31] train_patchtst_v2.py --scope round2 --tag 1c --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-21 19:42:33]   done in 8,0 min
+[2026-10-21 19:42:33]   1a: seq  100  best val MSE 0,141566  (test RMSE@500 0,1722, mean over h 0,1636)
+[2026-10-21 19:42:33]   1b: seq 1000  best val MSE 0,137198  (test RMSE@500 0,1694, mean over h 0,1614)
+[2026-10-21 19:42:33]   1c: seq 2000  best val MSE 0,134138  (test RMSE@500 0,1670, mean over h 0,1592)
+[2026-10-21 19:42:33] SEQ* = 2000 (run 1c, patch 128/64): lowest best val MSE
+[2026-10-21 19:42:33] ----- Phase 2: StatLoss (template-free) with SEQ* = 2000 (R2) -----
+[2026-10-21 19:42:33] train_patchtst_v2.py --scope round2 --tag 2d --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0 --lam-std 1
+[2026-10-21 19:53:07]   done in 10,6 min
+[2026-10-21 19:53:07] train_patchtst_v2.py --scope round2 --tag 2a --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.0003 --lam-std 1
+[2026-10-21 20:04:34]   done in 11,5 min
+[2026-10-21 20:04:34] train_patchtst_v2.py --scope round2 --tag 2b --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.003 --lam-std 1
+[2026-10-21 20:12:35]   done in 8,0 min
+[2026-10-21 20:12:35] train_patchtst_v2.py --scope round2 --tag 2c --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.03 --lam-std 1
+[2026-10-21 20:21:30]   done in 8,9 min
+[2026-10-21 20:21:30] train_patchtst_v2.py --scope round2 --tag 2f --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.1 --lam-std 1
+[2026-10-21 20:31:00]   done in 9,5 min
+[2026-10-21 20:31:00] ----- Phase 4: SEQ* MSE model on R3 -----
+[2026-10-21 20:31:00] train_patchtst_v2.py --scope all --tag 4a --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-21 21:12:34]   done in 41,6 min
+[2026-10-21 21:12:34] ----- Phase 5: leave-buildings-out (train without 1_1_4 and 3_1_3, test on them) -----
+[2026-10-21 21:12:34] train_patchtst_v2.py --scope all --tag 5a --seq 2000 --patch-len 128 --patch-stride 64 --exclude-ratios 1_1_4 3_1_3
+[2026-10-21 21:52:56]   done in 40,4 min
+[2026-10-21 21:52:56] ----- Controls: linear bins, original StatLoss, original patching (R2) -----
+[2026-10-21 21:52:56] train_patchtst_v2.py --scope round2 --tag 2e --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.003 --lam-std 1 --psd-bins linear
+[2026-10-21 22:02:20]   done in 9,4 min
+[2026-10-21 22:02:20] train_patchtst_v2.py --scope round2 --tag 2c-legacy --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.03 --lam-std 1 --legacy-statloss
+[2026-10-21 22:11:19]   done in 9,0 min
+[2026-10-21 22:11:19] train_patchtst_v2.py --scope round2 --tag 1a-orig --seq 100 --patch-len 16 --patch-stride 8 --align start
+[2026-10-21 22:25:00]   done in 13,7 min
+[2026-10-21 22:25:00] Summary:
+
+run                                                  val_rmse_mean test_rmse_mean test_rmse500 power_ratio tpl_share
+---                                                  ------------- -------------- ------------ ----------- ---------
+naive_r2                                             0,2131        0,2124         0,2355       0,000       0,013    
+1a_s100_p16-8_mse_r2                                 0,1653        0,1636         0,1722       0,014       0,002    
+1b_s1000_p64-32_mse_r2                               0,1631        0,1614         0,1694       0,015       0,003    
+1c_s2000_p128-64_mse_r2                              0,1613        0,1592         0,1670       0,016       0,000    
+2d_s2000_p128-64_lpsd0_lstd1_r2                      0,1709        0,1690         0,1759       0,135       0,001    
+2a_s2000_p128-64_lpsd0.0003_lstd1_r2                 0,1702        0,1694         0,1750       0,195       0,001    
+2b_s2000_p128-64_lpsd0.003_lstd1_r2                  0,1725        0,1702         0,1712       0,347       0,002    
+2c_s2000_p128-64_lpsd0.03_lstd1_r2                   0,1748        0,1736         0,1696       0,630       0,000    
+2f_s2000_p128-64_lpsd0.1_lstd1_r2                    0,1781        0,1765         0,1692       0,803       0,000    
+naive_r3                                             0,2105        0,2092         0,2309       0,000       0,012    
+4a_s2000_p128-64_mse_r3                              0,1583        0,1576         0,1665       0,014       0,000    
+naive_r3_lbo                                         0,2129        0,2000         0,2236       0,000       0,015    
+5a_s2000_p128-64_mse_lbo_r3                          0,1599        0,1512         0,1597       0,014       0,001    
+2e_s2000_p128-64_lpsd0.003_lstd1_lin_r2              0,1711        0,1695         0,1748       0,195       0,000    
+2c-legacy_s2000_p128-64_lpsd0.03_lstd1_legacystat_r2 0,1741        0,1725         0,1686       0,610       0,157    
+1a-orig_s100_p16-8_legacypatch_mse_r2                0,1668        0,1651         0,1735       0,014       0,001
+[2026-10-21 22:25:00] ALL DONE in 3,2 h. Next: python analyze_gpu_plan.py, then choose lambda.

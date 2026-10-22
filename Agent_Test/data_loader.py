@@ -425,3 +425,141 @@ def build_test_trajectories(
         "seq_length": seq_length,
         "H": H,
     }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Context-prepended, lazily windowed dataset  (GPU plan 2026-10, rule 2)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def list_series(alphas: Optional[List[str]] = None,
+                data_dir: Optional[Path] = None) -> List[Tuple[str, str, int]]:
+    """
+    Every (alpha, ratio, angle) with windward data on disk, in the order the
+    multi-building loaders visit them (alpha, sorted ratio, angle). With the
+    default alphas, the position in this list is the global ``series_id``.
+    """
+    base = data_dir or POSTPROCESS_DIR
+    out: List[Tuple[str, str, int]] = []
+    for alpha in alphas or ["Alpha1_4", "Alpha1_6"]:
+        alpha_dir = base / alpha
+        if not alpha_dir.exists():
+            continue
+        for ratio_dir in sorted(alpha_dir.iterdir()):
+            if ratio_dir.is_dir() and (ratio_dir / "Data").exists():
+                out += [(alpha, ratio_dir.name, angle)
+                        for angle in available_angles(alpha, ratio_dir.name, base)]
+    return out
+
+
+def load_all_buildings_ctx(
+    seq_length: int = 100,
+    step: int = 30,
+    horizon: int = 500,
+    test_step: int = 10,
+    alphas: Optional[List[str]] = None,
+    ratios: Optional[List[str]] = None,
+    exclude_ratios: Optional[List[str]] = None,
+    only_ratios: Optional[List[str]] = None,
+    mu_sigma: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    train_ratio: float = 0.70,
+    val_ratio: float = 0.15,
+    data_dir: Optional[Path] = None,
+) -> Dict:
+    """
+    Multi-building loader for the GPU plan (Handoffs/2026-10-21, rule 2).
+
+    Same chronological 70/15/15 split per series and train-only z-score as
+    ``load_all_buildings``, but val/test windows take their look-back context
+    from the end of the previous split:
+
+        train_seg = ts_n[:t1]
+        val_seg   = ts_n[t1 - seq_length : t2]
+        test_seg  = ts_n[t2 - seq_length :]
+
+    so the val/test TARGETS are identical for every ``seq_length`` and runs
+    with different look-back windows are scored on the same windows.
+
+    Windows are not materialised (seq 2000 on the full scope would need
+    >7 GB): the normalised series are returned once, plus one
+    (row, start) pair per window —
+        input  = series[row, start : start + seq_length]
+        target = series[row, start + seq_length : start + seq_length + horizon, 0]
+
+    Parameters
+    ----------
+    alphas, ratios : scope whitelists (None = everything on disk).
+    exclude_ratios : building ratios dropped from the scope (leave-buildings-out).
+    only_ratios    : keep only these ratios (builds the held-out test set).
+    mu_sigma       : (mu, sigma) to reuse instead of fitting on this scope's train.
+
+    Returns
+    -------
+    dict with:
+        series      : (S, T, 4) float32 — normalised series of the scope
+        train_idx, val_idx, test_idx : (N, 2) int64 — (row in series, window start)
+        series_meta : list[(series_id, alpha, ratio, angle)], one per row
+        test_meta   : dict of (N_test,) arrays — series_id, alpha, ratio,
+                      angle and target_start of every test window
+        mu, sigma   : (4,) float32
+    """
+    base = data_dir or POSTPROCESS_DIR
+    keep = [
+        (sid, alpha, ratio, angle)
+        for sid, (alpha, ratio, angle) in enumerate(list_series(data_dir=base))
+        if (alphas is None or alpha in alphas)
+        and (ratios is None or ratio in ratios)
+        and (exclude_ratios is None or ratio not in exclude_ratios)
+        and (only_ratios is None or ratio in only_ratios)
+    ]
+    if not keep:
+        raise RuntimeError("No series match the requested scope.")
+
+    series = np.stack([load_faces(a, r, ang, base) for _, a, r, ang in keep])
+    S, T, n_feat = series.shape
+    t1 = int(T * train_ratio)
+    t2 = int(T * (train_ratio + val_ratio))
+
+    # Fit normalisation ONLY on the train portions, in float64: a float32
+    # reduction over ~8 M rows (what load_all_buildings does) biases sigma by
+    # -0.4 % on the full scope (0.4502 instead of 0.4521)
+    if mu_sigma is None:
+        mu, sigma = zscore_fit(series[:, :t1].reshape(-1, n_feat).astype(np.float64))
+    else:
+        mu, sigma = mu_sigma
+    series = zscore_transform(series, mu, sigma)
+
+    def _windows(target_starts: np.ndarray) -> np.ndarray:
+        # every series has the same length, hence the same windows
+        starts = target_starts - seq_length
+        return np.stack([np.repeat(np.arange(S), len(starts)),
+                         np.tile(starts, S)], axis=1).astype(np.int64)
+
+    train_idx = _windows(np.arange(seq_length, t1 - horizon + 1, step))
+    val_idx = _windows(np.arange(t1, t2 - horizon + 1, step))
+    test_idx = _windows(np.arange(t2, T - horizon + 1, test_step))
+
+    rows = test_idx[:, 0]
+    test_meta = {
+        "series_id": np.array([k[0] for k in keep])[rows],
+        "alpha": np.array([k[1] for k in keep])[rows],
+        "ratio": np.array([k[2] for k in keep])[rows],
+        "angle": np.array([k[3] for k in keep])[rows],
+        "target_start": test_idx[:, 1] + seq_length,
+    }
+
+    print(f"  Loaded {S} building-angle series ({series.nbytes / 1e6:.0f} MB normalised)")
+    print(f"  Windows  train: {len(train_idx)} (step {step})  val: {len(val_idx)} "
+          f"(step {step})  test: {len(test_idx)} (step {test_step})")
+    print(f"  mu_w={mu[0]:.4f}  sigma_w={sigma[0]:.4f}"
+          f"{'  (reused)' if mu_sigma is not None else ''}")
+
+    return {
+        "series": series,
+        "train_idx": train_idx, "val_idx": val_idx, "test_idx": test_idx,
+        "series_meta": keep,
+        "test_meta": test_meta,
+        "mu": mu, "sigma": sigma,
+        "n_features": n_feat,
+        "seq_length": seq_length,
+        "horizon": horizon,
+    }

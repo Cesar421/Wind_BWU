@@ -1,0 +1,38 @@
+﻿[2026-10-21 18:10:30] ===== GPU plan: Phases 1 + 2 (python: C:\Users\verwalter\anaconda3\envs\ML_Cesar\python.exe) =====
+[2026-10-21 18:10:30] ----- Phase 1: look-back window (MSE, R2) -----
+[2026-10-21 18:10:30] train_patchtst_v2.py --scope round2 --tag 1a --seq 100 --patch-len 16 --patch-stride 8
+[2026-10-21 18:15:22]   done in 4,9 min
+[2026-10-21 18:15:22] train_patchtst_v2.py --scope round2 --tag 1b --seq 1000 --patch-len 64 --patch-stride 32
+[2026-10-21 18:18:37]   done in 3,3 min
+[2026-10-21 18:18:37] train_patchtst_v2.py --scope round2 --tag 1c --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-21 18:22:03]   done in 3,4 min
+[2026-10-21 18:22:03]   1a: seq  100  best val MSE 0,150629  (test RMSE@500 0,1795)
+[2026-10-21 18:22:03]   1b: seq 1000  best val MSE 0,136104  (test RMSE@500 0,1690)
+[2026-10-21 18:22:03]   1c: seq 2000  best val MSE 0,134189  (test RMSE@500 0,1672)
+[2026-10-21 18:22:03] SEQ* = 2000 (run 1c, patch 128/64): lowest best val MSE
+[2026-10-21 18:22:03] ----- Phase 2: StatLoss with SEQ* = 2000 (R2) -----
+[2026-10-21 18:22:03] train_patchtst_v2.py --scope round2 --tag 2a --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.0003 --lam-std 1
+[2026-10-21 18:27:04]   done in 5,0 min
+[2026-10-21 18:27:04] train_patchtst_v2.py --scope round2 --tag 2b --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.003 --lam-std 1
+[2026-10-21 18:32:40]   done in 5,6 min
+[2026-10-21 18:32:40] train_patchtst_v2.py --scope round2 --tag 2c --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0.03 --lam-std 1
+[2026-10-21 18:38:44]   done in 6,1 min
+[2026-10-21 18:38:44] train_patchtst_v2.py --scope round2 --tag 2d --seq 2000 --patch-len 128 --patch-stride 64 --lam-psd 0 --lam-std 1
+[2026-10-21 18:44:20]   done in 5,6 min
+[2026-10-21 18:44:20] ----- Control: legacy patching, seq 100 (isolates stride vs. alignment) -----
+[2026-10-21 18:44:20] train_patchtst_v2.py --scope round2 --tag 1a-orig --seq 100 --patch-len 16 --patch-stride 8 --align start
+[2026-10-21 18:50:35]   done in 6,3 min
+[2026-10-21 18:50:35] Summary (h=500):
+
+run                                   val_rmse500 test_rmse500 power_ratio std_ratio
+---                                   ----------- ------------ ----------- ---------
+naive_r2                              0,2323      0,2355       0,000       0,000    
+1a_s100_p16-8_mse_r2                  0,1813      0,1795       0,013       0,210    
+1b_s1000_p64-32_mse_r2                0,1719      0,1690       0,016       0,222    
+1c_s2000_p128-64_mse_r2               0,1698      0,1672       0,017       0,224    
+2a_s2000_p128-64_lpsd0.0003_lstd1_r2  0,1748      0,1721       0,211       0,588    
+2b_s2000_p128-64_lpsd0.003_lstd1_r2   0,1732      0,1701       0,334       0,592    
+2c_s2000_p128-64_lpsd0.03_lstd1_r2    0,1711      0,1685       0,620       0,657    
+2d_s2000_p128-64_lpsd0_lstd1_r2       0,1770      0,1740       0,118       0,588    
+1a-orig_s100_p16-8_legacypatch_mse_r2 0,1811      0,1793       0,012       0,202
+[2026-10-21 18:50:35] ALL DONE in 40,1 min. Next: Pareto curve + choose lambda (plan section 6, Phase 2 rule).

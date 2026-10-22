@@ -6,7 +6,7 @@ All per-model training scripts import from this module.
 import csv
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -80,6 +80,39 @@ def make_loaders(data: dict, batch_size: int = 256
     )
 
 
+class WindowLoader:
+    """
+    Lazy counterpart of ``make_loaders`` for ``load_all_buildings_ctx`` data.
+
+    Keeps the normalised series on the device and gathers every batch on the
+    fly: x = (B, seq_length, C) inputs, y = (B, horizon) windward targets —
+    the same windows ``build_sequences`` would materialise, without the
+    multi-GB X arrays. Shuffling draws from the global torch RNG (set_seed).
+    """
+
+    def __init__(self, series: torch.Tensor, idx: np.ndarray, seq_length: int,
+                 horizon: int, batch_size: int, shuffle: bool = False):
+        dev = series.device
+        pairs = torch.as_tensor(idx, dtype=torch.long, device=dev)
+        self.series = series
+        self.rows, self.starts = pairs[:, 0], pairs[:, 1]
+        self.x_off = torch.arange(seq_length, device=dev)
+        self.y_off = torch.arange(seq_length, seq_length + horizon, device=dev)
+        self.batch_size, self.shuffle = batch_size, shuffle
+
+    def __len__(self) -> int:
+        return (len(self.rows) + self.batch_size - 1) // self.batch_size
+
+    def __iter__(self):
+        n = len(self.rows)
+        order = (torch.randperm(n).to(self.rows.device) if self.shuffle
+                 else torch.arange(n, device=self.rows.device))
+        for i in range(0, n, self.batch_size):
+            b = order[i: i + self.batch_size]
+            r, s = self.rows[b, None], self.starts[b, None]
+            yield self.series[r, s + self.x_off], self.series[r, s + self.y_off, 0]
+
+
 # ── Metrics ──────────────────────────────────────────────────────────────────
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
@@ -113,16 +146,24 @@ def train_model(
     patience: int = 15,
     lr_patience: int = 5,
     lr_factor: float = 0.5,
+    loss_fn: Optional[nn.Module] = None,
+    history: Optional[dict] = None,
 ) -> Tuple[List[float], List[float], float, float]:
     """
     Train with early stopping and ReduceLROnPlateau.
+
+    loss_fn : criterion for train AND val (default ``nn.MSELoss()``); early
+              stopping, LR schedule and checkpoint all follow this same loss.
+    history : optional dict, filled with per-epoch lists ``train_loss``,
+              ``val_loss``, ``val_mse`` (pure MSE, whatever loss_fn is),
+              ``lr`` and ``epoch_time_s``, plus ``best_epoch``.
 
     Returns
     -------
     (train_losses, val_losses, training_time_sec, best_val_loss)
     Best checkpoint is loaded back into *model* before returning.
     """
-    criterion = nn.MSELoss()
+    criterion = loss_fn if loss_fn is not None else nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr,
                                  weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -136,8 +177,13 @@ def train_model(
     train_losses: List[float] = []
     val_losses: List[float] = []
 
+    if history is not None:
+        for k in ("train_loss", "val_loss", "val_mse", "lr", "epoch_time_s"):
+            history[k] = []
+
     t0 = time.time()
     for epoch in range(1, max_epochs + 1):
+        t_ep = time.time()
         # ── train ──
         model.train()
         b_losses = []
@@ -153,12 +199,21 @@ def train_model(
 
         # ── validate ──
         model.eval()
-        v_batch = []
+        v_batch, v_mse = [], []
         with torch.no_grad():
             for xb, yb in val_loader:
                 xb, yb = xb.to(DEVICE), yb.to(DEVICE)
-                v_batch.append(criterion(model(xb), yb).item())
+                out = model(xb)
+                v_batch.append(criterion(out, yb).item())
+                if history is not None:
+                    v_mse.append(nn.functional.mse_loss(out, yb).item())
         v_loss = float(np.mean(v_batch))
+
+        if history is not None:
+            history["train_loss"].append(t_loss)
+            history["val_loss"].append(v_loss)
+            history["val_mse"].append(float(np.mean(v_mse)))
+            history["lr"].append(optimizer.param_groups[0]["lr"])
 
         scheduler.step(v_loss)
         train_losses.append(t_loss)
@@ -166,8 +221,13 @@ def train_model(
 
         if epoch % 10 == 0 or epoch == 1:
             lr_now = optimizer.param_groups[0]["lr"]
+            mse_txt = (f" | val_mse={history['val_mse'][-1]:.6f}"
+                       if history is not None and loss_fn is not None else "")
             print(f"  Epoch {epoch:>3d} | train={t_loss:.6f}"
-                  f" | val={v_loss:.6f} | lr={lr_now:.2e}")
+                  f" | val={v_loss:.6f}{mse_txt} | lr={lr_now:.2e}")
+
+        if history is not None:
+            history["epoch_time_s"].append(time.time() - t_ep)
 
         if v_loss < best_val:
             best_val = v_loss
@@ -175,6 +235,8 @@ def train_model(
             torch.save({"state_dict": model.state_dict(),
                          "epoch": epoch,
                          "best_val_loss": best_val}, str(ckpt_path))
+            if history is not None:
+                history["best_epoch"] = epoch
         else:
             wait += 1
             if wait >= patience:

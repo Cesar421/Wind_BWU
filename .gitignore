@@ -23,6 +23,13 @@ checkpoints-*/
 # Local logs
 *.log
 
+# GPU plan 2026-10: per-run preds/trues (big/) and smoke-test outputs stay local;
+# the per-run training logs and the launcher log ARE committed (results record)
+Agent_Test/results/gpu_plan_2026-10/**/big/
+Agent_Test/results/gpu_plan_2026-10/_smoke/
+!Agent_Test/results/gpu_plan_2026-10/**/train.log
+!Agent_Test/results/gpu_plan_2026-10/**/run_gpu_plan.log
+
 # Agent_Papers: derived PDF text dumps (re-extractable, copyright-safe)
 Agent_Papers/_extracted/
 

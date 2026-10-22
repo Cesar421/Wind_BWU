@@ -1,0 +1,36 @@
+
+======================================================================
+  PatchTST v2  2a_s2000_p128-64_lpsd0.0003_lstd1_r2
+======================================================================
+Device: cuda  (NVIDIA RTX A4000)  | GPU memory cap 85%  | CPU threads 24
+  Loaded 85 building-angle series (45 MB normalised)
+  Windows  train: 57970 (step 30)  val: 12580 (step 30)  test: 37570 (step 10)
+  mu_w=0.2409  sigma_w=0.4442
+
+Parameters: 2,387,700  | tokens: 30  | uncovered samples: 16 at the oldest end of the window
+Loss: StatLoss  lam_psd=0.0003 (octave)  lam_std=1
+  Epoch   1 | train=0.230836 | val=0.191979 | val_mse=0.164111 | lr=1.00e-03
+  Epoch  10 | train=0.181488 | val=0.183327 | val_mse=0.151434 | lr=1.00e-03
+  Epoch  20 | train=0.176336 | val=0.178527 | val_mse=0.151673 | lr=5.00e-04
+  Epoch  30 | train=0.174410 | val=0.176123 | val_mse=0.149671 | lr=5.00e-04
+  Epoch  40 | train=0.173923 | val=0.175091 | val_mse=0.148428 | lr=5.00e-04
+  Epoch  50 | train=0.171590 | val=0.174315 | val_mse=0.148231 | lr=2.50e-04
+  Epoch  60 | train=0.169861 | val=0.173471 | val_mse=0.147616 | lr=1.25e-04
+  Epoch  70 | train=0.168994 | val=0.173134 | val_mse=0.147209 | lr=6.25e-05
+  Epoch  80 | train=0.167958 | val=0.173282 | val_mse=0.147697 | lr=1.56e-05
+  Early stopping at epoch 81
+
+Training time: 295.0 s (4.9 min), 81 epochs, 3.64 s/epoch | best epoch 66: val loss 0.172971, val MSE 0.147275
+Evaluation: 0.7 s | peak GPU memory 199 MB | peak RAM 1.4 GB
+
+-- 2a_s2000_p128-64_lpsd0.0003_lstd1_r2 vs naive (same windows) --
+           val RMSE   naive   test RMSE   naive  test R2
+  h=  1     0.1363  0.0316      0.1351  0.0314   0.9080
+  h= 10     0.1330  0.0643      0.1321  0.0644   0.9120
+  h= 50     0.1565  0.1610      0.1543  0.1590   0.8801
+  h=100     0.1654  0.2009      0.1650  0.2004   0.8631
+  h=500     0.1748  0.2323      0.1721  0.2355   0.8486
+  test power ratio  total 0.211 | 2-10 Hz 0.164 | 10-50 Hz 0.385 | 50-500 Hz 0.795
+  test window std   pred 0.0789  true 0.1343  (ratio 0.588)
+
+Run folder: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\gpu_plan_2026-10\runs\2a_s2000_p128-64_lpsd0.0003_lstd1_r2

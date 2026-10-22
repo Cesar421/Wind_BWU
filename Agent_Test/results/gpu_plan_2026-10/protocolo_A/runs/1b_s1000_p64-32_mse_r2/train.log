@@ -1,0 +1,33 @@
+
+======================================================================
+  PatchTST v2  1b_s1000_p64-32_mse_r2
+======================================================================
+Device: cuda  (NVIDIA RTX A4000)  | GPU memory cap 85%  | CPU threads 24
+  Loaded 85 building-angle series (45 MB normalised)
+  Windows  train: 60775 (step 30)  val: 12580 (step 30)  test: 37570 (step 10)
+  mu_w=0.2409  sigma_w=0.4442
+
+Parameters: 2,354,932  | tokens: 30  | uncovered samples: 8 at the oldest end of the window
+Loss: MSE
+  Epoch   1 | train=0.200545 | val=0.150247 | lr=1.00e-03
+  Epoch  10 | train=0.140867 | val=0.139981 | lr=1.00e-03
+  Epoch  20 | train=0.138404 | val=0.137307 | lr=1.00e-03
+  Epoch  30 | train=0.136023 | val=0.137071 | lr=5.00e-04
+  Epoch  40 | train=0.134729 | val=0.136605 | lr=2.50e-04
+  Epoch  50 | train=0.133892 | val=0.136606 | lr=1.25e-04
+  Early stopping at epoch 58
+
+Training time: 188.9 s (3.1 min), 58 epochs, 3.25 s/epoch | best epoch 43: val loss 0.136104, val MSE 0.136104
+Evaluation: 0.8 s | peak GPU memory 193 MB | peak RAM 1.3 GB
+
+-- 1b_s1000_p64-32_mse_r2 vs naive (same windows) --
+           val RMSE   naive   test RMSE   naive  test R2
+  h=  1     0.0449  0.0316      0.0440  0.0314   0.9903
+  h= 10     0.0670  0.0643      0.0665  0.0644   0.9777
+  h= 50     0.1419  0.1610      0.1402  0.1590   0.9011
+  h=100     0.1630  0.2009      0.1619  0.2004   0.8681
+  h=500     0.1719  0.2323      0.1690  0.2355   0.8541
+  test power ratio  total 0.016 | 2-10 Hz 0.019 | 10-50 Hz 0.004 | 50-500 Hz 0.004
+  test window std   pred 0.0298  true 0.1343  (ratio 0.222)
+
+Run folder: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\gpu_plan_2026-10\runs\1b_s1000_p64-32_mse_r2

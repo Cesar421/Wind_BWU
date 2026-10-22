@@ -1,0 +1,38 @@
+
+======================================================================
+  PatchTST v2  2d_s2000_p128-64_lpsd0_lstd1_r2
+======================================================================
+Device: cuda  (NVIDIA RTX A4000)  | GPU memory cap 85%  | CPU threads 24
+  Loaded 85 building-angle series (45 MB normalised)
+  Windows  train: 57970 (step 30)  val: 12580 (step 30)  test: 37570 (step 10)
+  mu_w=0.2409  sigma_w=0.4442
+
+Parameters: 2,387,700  | tokens: 30  | uncovered samples: 16 at the oldest end of the window
+Loss: StatLoss  lam_psd=0 (octave)  lam_std=1
+  Epoch   1 | train=0.231179 | val=0.189902 | val_mse=0.162294 | lr=1.00e-03
+  Epoch  10 | train=0.181847 | val=0.183164 | val_mse=0.150769 | lr=1.00e-03
+  Epoch  20 | train=0.177508 | val=0.177407 | val_mse=0.149780 | lr=1.00e-03
+  Epoch  30 | train=0.175734 | val=0.176193 | val_mse=0.147944 | lr=1.00e-03
+  Epoch  40 | train=0.173453 | val=0.173557 | val_mse=0.148582 | lr=5.00e-04
+  Epoch  50 | train=0.171558 | val=0.173873 | val_mse=0.148269 | lr=2.50e-04
+  Epoch  60 | train=0.170174 | val=0.173114 | val_mse=0.148132 | lr=1.25e-04
+  Epoch  70 | train=0.169394 | val=0.172923 | val_mse=0.147338 | lr=6.25e-05
+  Epoch  80 | train=0.168692 | val=0.172694 | val_mse=0.147450 | lr=3.13e-05
+  Epoch  90 | train=0.168817 | val=0.173431 | val_mse=0.148061 | lr=3.13e-05
+  Epoch 100 | train=0.168353 | val=0.172657 | val_mse=0.147572 | lr=7.81e-06
+  Early stopping at epoch 100
+
+Training time: 329.4 s (5.5 min), 100 epochs, 3.29 s/epoch | best epoch 85: val loss 0.172436, val MSE 0.147283
+Evaluation: 0.8 s | peak GPU memory 199 MB | peak RAM 1.4 GB
+
+-- 2d_s2000_p128-64_lpsd0_lstd1_r2 vs naive (same windows) --
+           val RMSE   naive   test RMSE   naive  test R2
+  h=  1     0.2299  0.0316      0.2304  0.0314   0.7325
+  h= 10     0.1435  0.0643      0.1428  0.0644   0.8973
+  h= 50     0.1628  0.1610      0.1603  0.1590   0.8706
+  h=100     0.1656  0.2009      0.1647  0.2004   0.8634
+  h=500     0.1770  0.2323      0.1740  0.2355   0.8453
+  test power ratio  total 0.118 | 2-10 Hz 0.126 | 10-50 Hz 0.037 | 50-500 Hz 0.362
+  test window std   pred 0.0790  true 0.1343  (ratio 0.588)
+
+Run folder: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\gpu_plan_2026-10\runs\2d_s2000_p128-64_lpsd0_lstd1_r2

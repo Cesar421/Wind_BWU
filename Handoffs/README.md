@@ -13,5 +13,6 @@ y sigue su sección «Arranque».
 
 | Fecha | Archivo | Estado |
 |---|---|---|
-| 2026-10-21 | [Plan GPU: ventana de entrada + restricción estadística (PatchTST)](2026-10-21_plan_GPU_ventana_y_restriccion_estadistica.md) | **Pendiente** |
+| 2026-10-22 | [Resultados del plan GPU (ventana + restricción estadística)](2026-10-22_resultados_GPU.md) | **Vigente** — leer este |
+| 2026-10-21 | [Plan GPU: ventana de entrada + restricción estadística (PatchTST)](2026-10-21_plan_GPU_ventana_y_restriccion_estadistica.md) | Completado (resultados en el de 2026-10-22) |
 | 2026-06-25 | [`../HANDOFF.md`](../HANDOFF.md) — reentreno de modelos directos + RF | Reemplazado (RF hecho; el reentreno ya no hace falta) |
