@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 AGENT = Path(__file__).resolve().parent
 EVAL_HS = [1, 10, 50, 100, 500]
 ROLE_ORDER = {"naive": 0, "phase1": 1, "phase2": 2, "phase2-control": 3, "control": 4,
-              "phase4": 5, "phase5": 6, "other": 7}
+              "phase4": 5, "phase5": 6, "phase6": 7, "other": 8}
 
 
 def role(tag: str) -> str:
@@ -50,7 +50,7 @@ def role(tag: str) -> str:
         return "control"
     if re.fullmatch(r"2[a-z]", tag):
         return "phase2"
-    for prefix, r in (("2", "phase2-control"), ("4", "phase4"), ("5", "phase5")):
+    for prefix, r in (("2", "phase2-control"), ("4", "phase4"), ("5", "phase5"), ("6", "phase6")):
         if tag.startswith(prefix):
             return r
     return "other"
@@ -215,6 +215,22 @@ def main():
                     "test_rmse_max": f4, "h_rmse_max": "{:.0f}", "power_total": f3,
                     "std_ratio": f3, "tpl_share": f3, "skill_vs_seqstar": f3,
                     "seq": "{:.0f}", "epochs": "{:.0f}", "lam_psd": "{:g}", "lam_std": "{:g}"})
+
+    # ── Seed repeats: same configuration trained with different seeds ──
+    groups = {}
+    for s in runs.values():
+        if s["role"] != "naive":
+            key = s["run"].replace(f"_seed{s.get('seed', 42)}", "")
+            groups.setdefault(key, []).append(s)
+    repeats = {k: v for k, v in groups.items() if len(v) > 1}
+    if repeats:
+        print("\n## Seed repeats (test, mean ± std over seeds)\n")
+        for k, v in repeats.items():
+            stats = []
+            for m in ("rmse_h1", "rmse_h10", "rmse_h500", "rmse_mean"):
+                x = np.array([s["test"][m] for s in v])
+                stats.append(f"{m} {x.mean():.4f} ± {x.std(ddof=1):.4f}")
+            print(f"  {k:<40} n={len(v)}  " + "  ".join(stats))
 
     # ── SEQ* and the plan's lambda rule (choose on validation) ──
     chosen = None

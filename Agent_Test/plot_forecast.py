@@ -41,6 +41,8 @@ def main():
                     default=["Alpha1_4/2_1_3/0", "Alpha1_4/1_1_3/45", "Alpha1_6/3_1_3/90"],
                     help="alpha/ratio/angle")
     ap.add_argument("--lead", type=float, default=2.0, help="seconds of real signal before the test segment")
+    ap.add_argument("--compare", default=None,
+                    help="second run drawn on the same windows (e.g. 4a_s2000_p128-64_mse_r3)")
     args = ap.parse_args()
 
     run = RUNS / args.run
@@ -49,6 +51,21 @@ def main():
     t0s = np.load(run / "big" / "target_start.npy")
     meta = pd.read_csv(run / "series_meta.csv")
     seq = int(args.run.split("_s")[1].split("_")[0])            # look-back in samples
+    tag = args.run.split("_")[0]
+
+    cmp_preds, cmp_at, cmp_tag, suffix = None, {}, None, ""
+    if args.compare:
+        c = RUNS / args.compare
+        cmp_preds = np.load(c / "big" / "preds.npy", mmap_mode="r")
+        cmp_at = {(s, t): i for i, (s, t) in enumerate(zip(np.load(c / "big" / "series_id.npy"),
+                                                            np.load(c / "big" / "target_start.npy")))}
+        cmp_tag = args.compare.split("_")[0]
+        suffix = f"_vs_{cmp_tag}"
+
+    def cmp_forecast(k):
+        """The comparison run's forecast for the same window as index k, or None."""
+        i = cmp_at.get((sid[k], t0s[k]))
+        return None if i is None else cmp_preds[i]
 
     picked = []
     for s in args.series:
@@ -71,23 +88,35 @@ def main():
         t = np.arange(lo, len(y)) / FS
         ax.axvspan(lo / FS, t_test / FS, color="0.92", lw=0, label="before the test segment")
         ax.plot(t, y[lo:], color="0.2", lw=0.7, label="real Cp")
-        err = []
+        err, cerr = [], []
         for j, k in enumerate(chain):
             tk = np.arange(t0s[k], t0s[k] + H) / FS
+            cf = cmp_forecast(k) if args.compare else None
+            if cf is not None:
+                ax.plot(tk, cf, color="tab:blue", lw=1.4,
+                        label=f"{cmp_tag} forecast" if j == 0 else None)
+                cerr.append(cf - y[t0s[k]: t0s[k] + H])
             ax.plot(tk, preds[k], color="tab:orange", lw=1.8,
-                    label="forecast (500 ms ahead, from real data up to its start)" if j == 0 else None)
+                    label=(f"{tag} forecast" if args.compare else
+                           "forecast (500 ms ahead, from real data up to its start)") if j == 0 else None)
             ax.axvline(t0s[k] / FS, color="tab:orange", lw=0.5, ls=":")
             err.append(preds[k] - y[t0s[k]: t0s[k] + H])
         rmse = float(np.sqrt(np.mean(np.concatenate(err) ** 2)))
+        score = f"RMSE {rmse:.3f}"
+        if cerr:
+            score = (f"RMSE {tag} {rmse:.3f} vs {cmp_tag} "
+                     f"{float(np.sqrt(np.mean(np.concatenate(cerr) ** 2))):.3f}")
         ax.set_title(f"{s}   —   {len(chain)} forecasts, each made from the previous "
-                     f"{seq / FS:g} s of real signal   (RMSE {rmse:.3f})", fontsize=10)
+                     f"{seq / FS:g} s of real signal   ({score})", fontsize=10)
         ax.set_ylabel("Cp windward")
         ax.grid(alpha=0.3)
     axes[0, 0].legend(loc="upper left", fontsize=8, ncol=3)
     axes[-1, 0].set_xlabel("time [s]")
-    fig.suptitle(f"Real time series vs. forecasts — {args.run} (test data, never seen in training)")
+    fig.suptitle(f"Real time series vs. forecasts — {args.run}"
+                 + (f" vs {args.compare}" if args.compare else "")
+                 + " (test data, never seen in training)", fontsize=11)
     fig.tight_layout()
-    fig.savefig(run / "forecast_continuous.png", dpi=130)
+    fig.savefig(run / f"forecast_continuous{suffix}.png", dpi=130)
     plt.close(fig)
 
     # ── 2) detail: one forecast per series with the full look-back ──
@@ -99,21 +128,30 @@ def main():
         ax.axvspan(-seq / FS, 0, color="tab:green", alpha=0.08, lw=0,
                    label=f"look-back the model sees ({seq / FS:g} s)")
         ax.plot(t, y[t0 - seq: t0 + H], color="0.2", lw=0.7, label="real Cp")
-        ax.hlines(y[t0 - 1], 0, (H - 1) / FS, color="tab:blue", ls="--", lw=1,
+        ax.hlines(y[t0 - 1], 0, (H - 1) / FS, color="0.5", ls="--", lw=1,
                   label="naive (last value)")
-        ax.plot(np.arange(H) / FS, preds[k], color="tab:orange", lw=1.8, label="forecast")
+        cf = cmp_forecast(k) if args.compare else None
+        if cf is not None:
+            ax.plot(np.arange(H) / FS, cf, color="tab:blue", lw=1.4, label=f"{cmp_tag} forecast")
+        ax.plot(np.arange(H) / FS, preds[k], color="tab:orange", lw=1.8,
+                label=f"{tag} forecast" if args.compare else "forecast")
         ax.axvline(0, color="k", lw=0.6)
         rmse = float(np.sqrt(np.mean((preds[k] - y[t0: t0 + H]) ** 2)))
-        ax.set_title(f"{s}   forecast made at t = {t0 / FS:.2f} s   (RMSE {rmse:.3f})", fontsize=10)
+        score = f"RMSE {rmse:.3f}"
+        if cf is not None:
+            score = (f"RMSE {tag} {rmse:.3f} vs {cmp_tag} "
+                     f"{float(np.sqrt(np.mean((cf - y[t0: t0 + H]) ** 2))):.3f}")
+        ax.set_title(f"{s}   forecast made at t = {t0 / FS:.2f} s   ({score})", fontsize=10)
         ax.set_ylabel("Cp windward")
         ax.grid(alpha=0.3)
     axes[0, 0].legend(loc="upper left", fontsize=8, ncol=4)
     axes[-1, 0].set_xlabel("time relative to the forecast start [s]")
-    fig.suptitle(f"What the model sees and what it predicts — {args.run}")
+    fig.suptitle(f"What the model sees and what it predicts — {args.run}"
+                 + (f" vs {args.compare}" if args.compare else ""), fontsize=11)
     fig.tight_layout()
-    fig.savefig(run / "forecast_detail.png", dpi=130)
+    fig.savefig(run / f"forecast_detail{suffix}.png", dpi=130)
     plt.close(fig)
-    print(f"Saved {run / 'forecast_continuous.png'}\n      {run / 'forecast_detail.png'}")
+    print(f"Saved {run / f'forecast_continuous{suffix}.png'}\n      {run / f'forecast_detail{suffix}.png'}")
 
 
 if __name__ == "__main__":

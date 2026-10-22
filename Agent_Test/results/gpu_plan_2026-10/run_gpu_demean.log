@@ -1,0 +1,14 @@
+﻿[2026-10-22 11:46:39] ===== Experiment 6: per-series train mean removed + seeds (python: C:\Users\verwalter\anaconda3\envs\ML_Cesar\python.exe) =====
+[2026-10-22 11:46:39] train_patchtst_v2.py --tag 6a --demean --scope all --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-22 12:11:02]   done in 24,4 min
+[2026-10-22 12:11:02] train_patchtst_v2.py --tag 6b --demean --exclude-ratios 1_1_4 3_1_3 --scope all --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-22 12:36:59]   done in 25,9 min
+[2026-10-22 12:36:59] train_patchtst_v2.py --tag 6a --demean --seed 43 --scope all --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-22 13:21:45]   done in 44,8 min
+[2026-10-22 13:21:45] train_patchtst_v2.py --tag 4a --seed 43 --scope all --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-22 14:16:27]   done in 54,7 min
+[2026-10-22 14:16:27] train_patchtst_v2.py --tag 6a --demean --seed 44 --scope all --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-22 14:47:54]   done in 31,5 min
+[2026-10-22 14:47:54] train_patchtst_v2.py --tag 4a --seed 44 --scope all --seq 2000 --patch-len 128 --patch-stride 64
+[2026-10-22 15:35:12]   done in 47,3 min
+[2026-10-22 15:35:12] ALL DONE in 3,8 h. Next: compare 4a vs 6a over the 3 seeds.

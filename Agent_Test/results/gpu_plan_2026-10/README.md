@@ -81,6 +81,50 @@ Checkpoints: `patchtst/checkpoints/gpu_plan_2026-10/[protocolo_A/]<corrida>.pt` 
 Nombre de corrida = `<tag>_s<seq>_p<patch_len>-<patch_stride>_<pérdida>_<scope>`, p. ej.
 `2b_s2000_p128-64_lpsd0.003_lstd1_r2`.
 
+## Experimento 6: quitar a cada serie su media de train (2026-10-22)
+
+Idea: a cada serie se le resta **la media de su parte de train** (primeros 23 s, por cara), en
+las tres partes: train, val y test. Después se le vuelve a sumar antes de medir el error, así que
+la comparación con 4a es sobre exactamente las mismas ventanas y en Cp. Es causal, porque solo usa
+el pasado de la serie, y se hace en memoria: `--demean` en `train_patchtst_v2.py`. El dataset no
+cambia: los 3169 archivos de `Data/` tienen la misma huella SHA-256 antes y después, y git no ve
+cambios. Lanzador: `run_gpu_demean.ps1` (6 corridas en 3.8 h). Motivación medida: a 500 ms, el
+modelo 4a era peor (0.1665) que predecir simplemente la media de train de la serie (0.1630),
+porque estimaba el nivel solo con 2 s de historia. Tras quitar la media de cada serie, σ_w pasa de
+0.452 a 0.163: el 87% de la varianza eran diferencias de nivel entre series.
+
+Test R3, media ± desviación de 3 semillas (42, 43, 44):
+
+| Modelo | h=1 | h=10 | h=500 | RMSE medio h=1..500 |
+|---|---|---|---|---|
+| naive | 0.0322 | 0.0656 | 0.2309 | 0.2092 |
+| 4a (seq 2000) | 0.0425 ± 0.0011 | 0.0626 ± 0.0009 | 0.1665 ± 0.0001 | 0.1576 ± 0.0002 |
+| **6a (4a + media por serie)** | **0.0330 ± 0.0014** | **0.0574 ± 0.0011** | **0.1632 ± 0.0000** | **0.1546 ± 0.0001** |
+
+Geometrías no vistas (`1_1_4` + `3_1_3`, las mismas 64 series y ventanas):
+
+| Modelo | h=1 | h=10 | h=500 | RMSE medio |
+|---|---|---|---|---|
+| 4a (las vio) | 0.0382 | 0.0567 | 0.1592 | 0.1508 |
+| 5a (no las vio) | 0.0361 | 0.0556 | 0.1597 | 0.1512 |
+| 6a media por serie (las vio) | 0.0295 | 0.0522 | 0.1560 | 0.1484 |
+| **6b media por serie (no las vio)** | 0.0322 | 0.0507 | **0.1558** | **0.1482** |
+| naive | 0.0295 | 0.0596 | 0.2236 | 0.2000 |
+
+Conclusiones:
+
+1. **Mejora real en todos los horizontes:** −2.0% a h=500, −1.9% en el RMSE medio, −8% a h=10 y
+   −22% a h=1, donde iguala prácticamente al naive. La variación entre semillas (±0.0001 a h=500)
+   es unas 30 veces menor que la mejora.
+2. **La generalización se mantiene:** 6b, que no vio esas geometrías, rinde igual que 6a, que sí las
+   vio, y mejora a 5a un 2.4%.
+3. **La variabilidad entre semillas es muy pequeña** (±0.0001–0.0002 a h=500 y en el RMSE medio),
+   lo que respalda también las diferencias de la Fase 1.
+4. **Límite que hay que declarar:** el modelo necesita conocer la media de la serie (o de esa
+   configuración) a partir de una medición previa de unos 23 s. Vale para el escenario de
+   pronóstico online o de diseño con historia; para un edificio nuevo sin ninguna medición, el
+   modelo es 4a/5a.
+
 ## Protocolo B: qué cambió y qué se corrió
 
 Cambios respecto al protocolo A:

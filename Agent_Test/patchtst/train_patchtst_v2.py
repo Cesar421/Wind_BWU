@@ -111,13 +111,13 @@ LR, WEIGHT_DECAY = 1e-3, 1e-4
 METRIC_COLS = (
     ["run", "tag", "scope", "split", "h", "rmse", "mae", "r2"] + EV_KEYS
     + ["n_windows", "seq", "patch_len", "patch_stride", "align", "step", "test_step",
-       "lam_psd", "lam_std", "psd_bins", "statloss", "exclude_ratios",
+       "lam_psd", "lam_std", "psd_bins", "statloss", "exclude_ratios", "demean", "seed",
        "max_epochs", "patience", "lr_patience",
        "params", "epochs_run", "best_epoch", "best_val_loss", "best_val_mse",
        "train_time_s", "s_per_epoch", "peak_gpu_mem_mb", "peak_ram_gb", "timestamp"]
 )
 # empty for the naive rows -> nullable ints, so they are not written as 1000.0
-INT_COLS = ["seq", "patch_len", "patch_stride", "max_epochs", "patience", "lr_patience",
+INT_COLS = ["seq", "patch_len", "patch_stride", "seed", "max_epochs", "patience", "lr_patience",
             "params", "epochs_run", "best_epoch", "peak_gpu_mem_mb", "h_rmse_max"]
 
 
@@ -145,6 +145,10 @@ def parse_args():
     p.add_argument("--psd-bins", choices=["octave", "linear"], default="octave")
     p.add_argument("--legacy-statloss", action="store_true",
                    help="original StatLoss: statistics on the raw forecasts (templates allowed)")
+    p.add_argument("--demean", action="store_true",
+                   help="remove from each series its own train-portion mean (in memory; "
+                        "added back before scoring)")
+    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--max-epochs", type=int, default=None, help="default 200 x step/10")
     p.add_argument("--patience", type=int, default=None,
                    help="early stopping, default 15 x step/10")
@@ -178,6 +182,10 @@ def run_name(a) -> str:
             parts.append("lin")
         if a.legacy_statloss:
             parts.append("legacystat")
+    if a.demean:
+        parts.append("dm")
+    if a.seed != 42:
+        parts.append(f"seed{a.seed}")
     if a.step != 30:
         parts.append(f"st{a.step}")
     if (a.max_epochs, a.patience, a.lr_patience) != schedule_defaults(a.step):
@@ -261,14 +269,18 @@ def _shape_shares(sd: np.ndarray, ss: float, C: np.ndarray, n: int, H: int):
 
 
 @torch.no_grad()
-def evaluate(model, loader, mu_w, sigma_w, H, keep=False) -> dict:
+def evaluate(model, loader, mu_w, sigma_w, H, keep=False, offset=None) -> dict:
     """
     Scores over every window of `loader`: per-h RMSE / MAE / R², their mean
     and max over h, window-mean periodograms (hann over the H steps, mean
     removed, df = fs/H), the mean within-window std and the template / PC1
     shares of prediction and truth. keep=True also returns preds/trues.
+    offset: per-window Cp level added back to prediction and truth (the
+    series means removed with --demean), in loader order.
     """
     model.eval()
+    off = (torch.as_tensor(offset, dtype=torch.float64, device=DEVICE)[:, None]
+           if offset is not None else None)
     win = torch.hann_window(H, dtype=torch.float64, device=DEVICE)
 
     def zeros(n):
@@ -287,6 +299,9 @@ def evaluate(model, loader, mu_w, sigma_w, H, keep=False) -> dict:
     for xb, yb in loader:
         p = model(xb).double() * sigma_w + mu_w
         y = yb.double() * sigma_w + mu_w
+        if off is not None:
+            p = p + off[n: n + len(yb)]
+            y = y + off[n: n + len(yb)]
         e = p - y
         se += e.pow(2).sum(0)
         ae += e.abs().sum(0)
@@ -398,14 +413,17 @@ def plot_history(path: Path, title: str, history: dict, show_mse: bool):
 
 def plot_examples(path: Path, title: str, series_n: np.ndarray, test_idx: np.ndarray,
                   series_meta: list, preds: np.ndarray, mu_w: float, sigma_w: float,
-                  seq: int, H: int, n_show: int = 4, ctx: int = 300):
-    """Fixed test windows (the same for every run of a scope): truth, forecast, naive."""
+                  seq: int, H: int, n_show: int = 4, ctx: int = 300, level=None):
+    """Fixed test windows (the same for every run of a scope): truth, forecast, naive.
+    level: per-series Cp means removed with --demean (added back to the truth)."""
     picks = [int((i + 0.5) * len(test_idx) / n_show) for i in range(n_show)]
     fig, axes = plt.subplots(n_show, 1, figsize=(12, 2.6 * n_show), sharex=True)
     for ax, k in zip(np.atleast_1d(axes), picks):
         row, start = test_idx[k]
         t0 = start + seq                                     # first target sample
         truth = series_n[row, t0 - ctx: t0 + H, 0] * sigma_w + mu_w
+        if level is not None:
+            truth = truth + level[row]
         _, alpha, ratio, angle = series_meta[row]
         rmse = float(np.sqrt(np.mean((preds[k] - truth[ctx:]) ** 2)))
         ax.axvspan(-min(seq, ctx), 0, color="tab:green", alpha=0.08, lw=0,
@@ -446,12 +464,13 @@ def main():
     print(f"\n{'=' * 70}\n  PatchTST v2  {name}\n{'=' * 70}")
     print(f"Device: {DEVICE}  ({torch.cuda.get_device_name(0) if DEVICE.type == 'cuda' else 'cpu'})"
           f"  | GPU memory cap 85%  | CPU threads {torch.get_num_threads()}")
-    set_seed(42)
+    set_seed(args.seed)
 
     # ── Data (rule 2: val/test context taken from the previous split) ──
     scope_kw = (dict(alphas=ROUND2_ALPHAS, ratios=ROUND2_RATIOS)
                 if args.scope == "round2" else {})
-    ctx_kw = dict(seq_length=args.seq, step=args.step, horizon=H, test_step=args.test_step)
+    ctx_kw = dict(seq_length=args.seq, step=args.step, horizon=H, test_step=args.test_step,
+                  demean=args.demean)
     data = load_all_buildings_ctx(exclude_ratios=args.exclude_ratios, **ctx_kw, **scope_kw)
     test_data = data
     if args.exclude_ratios:
@@ -460,6 +479,10 @@ def main():
                                            mu_sigma=(data["mu"], data["sigma"]),
                                            **ctx_kw, **scope_kw)
     mu_w, sigma_w = float(data["mu"][0]), float(data["sigma"][0])
+    # per-window Cp level to add back when scoring (only with --demean)
+    val_off = data["series_mean"][data["val_idx"][:, 0], 0] if args.demean else None
+    test_off = (test_data["series_mean"][test_data["test_idx"][:, 0], 0]
+                if args.demean else None)
 
     series = torch.from_numpy(data["series"]).to(DEVICE)
     test_series = (series if test_data is data
@@ -507,8 +530,9 @@ def main():
                        "step": args.step, "test_step": args.test_step,
                        "exclude_ratios": " ".join(args.exclude_ratios or []),
                        "timestamp": datetime.now().isoformat(timespec="seconds")},
-                      evaluate(naive, val_eval, mu_w, sigma_w, H),
-                      evaluate(naive, test_loader, mu_w, sigma_w, H), metrics_csv)
+                      evaluate(naive, val_eval, mu_w, sigma_w, H, offset=val_off),
+                      evaluate(naive, test_loader, mu_w, sigma_w, H, offset=test_off),
+                      metrics_csv)
     with open(naive_dir / "summary.json", encoding="utf-8") as f:
         naive_sum = json.load(f)
 
@@ -554,8 +578,8 @@ def main():
 
     # ── Evaluate the best checkpoint on val and test ──
     t_ev = time.time()
-    ev_val = evaluate(model, val_eval, mu_w, sigma_w, H)
-    ev_test = evaluate(model, test_loader, mu_w, sigma_w, H, keep=True)
+    ev_val = evaluate(model, val_eval, mu_w, sigma_w, H, offset=val_off)
+    ev_test = evaluate(model, test_loader, mu_w, sigma_w, H, keep=True, offset=test_off)
     mem = psutil.Process().memory_info()
     peak_ram = getattr(mem, "peak_wset", mem.rss) / 1e9
     print(f"Evaluation: {time.time() - t_ev:.1f} s | peak GPU memory {peak_gpu:.0f} MB "
@@ -570,6 +594,7 @@ def main():
         "statloss": ("" if not use_stat
                      else "legacy" if args.legacy_statloss else "template-free"),
         "exclude_ratios": " ".join(args.exclude_ratios or []),
+        "demean": args.demean, "seed": args.seed,
         "max_epochs": args.max_epochs, "patience": args.patience,
         "lr_patience": args.lr_patience,
         "params": n_par, "epochs_run": len(tl), "best_epoch": best_epoch,
@@ -587,7 +612,8 @@ def main():
     plot_history(run_dir / "training_curves.png", name, history, show_mse=use_stat)
     plot_examples(run_dir / "forecast_examples.png", name, test_data["series"],
                   test_data["test_idx"], test_data["series_meta"], ev_test["preds"],
-                  mu_w, sigma_w, args.seq, H)
+                  mu_w, sigma_w, args.seq, H,
+                  level=test_data["series_mean"][:, 0] if args.demean else None)
     np.save(run_dir / "big" / "preds.npy", ev_test["preds"])
     np.save(run_dir / "big" / "trues.npy", ev_test["trues"])
     np.save(run_dir / "big" / "series_id.npy", test_data["test_meta"]["series_id"].astype(np.int16))

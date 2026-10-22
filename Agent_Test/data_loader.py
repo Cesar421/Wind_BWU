@@ -464,6 +464,7 @@ def load_all_buildings_ctx(
     train_ratio: float = 0.70,
     val_ratio: float = 0.15,
     data_dir: Optional[Path] = None,
+    demean: bool = False,
 ) -> Dict:
     """
     Multi-building loader for the GPU plan (Handoffs/2026-10-21, rule 2).
@@ -491,11 +492,16 @@ def load_all_buildings_ctx(
     exclude_ratios : building ratios dropped from the scope (leave-buildings-out).
     only_ratios    : keep only these ratios (builds the held-out test set).
     mu_sigma       : (mu, sigma) to reuse instead of fitting on this scope's train.
+    demean         : subtract from every series (train, val AND test) the mean
+                     of ITS OWN train portion, per face, before the z-score —
+                     causal (past data only) and in memory, the files are only
+                     read. Add ``series_mean`` back to get Cp.
 
     Returns
     -------
     dict with:
         series      : (S, T, 4) float32 — normalised series of the scope
+        series_mean : (S, 4) float32 — per-series train means removed (0 if not demean)
         train_idx, val_idx, test_idx : (N, 2) int64 — (row in series, window start)
         series_meta : list[(series_id, alpha, ratio, angle)], one per row
         test_meta   : dict of (N_test,) arrays — series_id, alpha, ratio,
@@ -518,6 +524,11 @@ def load_all_buildings_ctx(
     S, T, n_feat = series.shape
     t1 = int(T * train_ratio)
     t2 = int(T * (train_ratio + val_ratio))
+
+    series_mean = np.zeros((S, n_feat), dtype=np.float32)
+    if demean:
+        series_mean = series[:, :t1].mean(axis=1, dtype=np.float64).astype(np.float32)
+        series = series - series_mean[:, None, :]
 
     # Fit normalisation ONLY on the train portions, in float64: a float32
     # reduction over ~8 M rows (what load_all_buildings does) biases sigma by
@@ -551,10 +562,13 @@ def load_all_buildings_ctx(
     print(f"  Windows  train: {len(train_idx)} (step {step})  val: {len(val_idx)} "
           f"(step {step})  test: {len(test_idx)} (step {test_step})")
     print(f"  mu_w={mu[0]:.4f}  sigma_w={sigma[0]:.4f}"
-          f"{'  (reused)' if mu_sigma is not None else ''}")
+          f"{'  (reused)' if mu_sigma is not None else ''}"
+          + (f"  | per-series train means removed (windward: {series_mean[:, 0].min():.3f}"
+             f" .. {series_mean[:, 0].max():.3f})" if demean else ""))
 
     return {
         "series": series,
+        "series_mean": series_mean,
         "train_idx": train_idx, "val_idx": val_idx, "test_idx": test_idx,
         "series_meta": keep,
         "test_meta": test_meta,

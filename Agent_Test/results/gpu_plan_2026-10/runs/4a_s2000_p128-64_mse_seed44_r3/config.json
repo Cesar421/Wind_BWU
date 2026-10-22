@@ -1,0 +1,63 @@
+{
+  "run": "4a_s2000_p128-64_mse_seed44_r3",
+  "scope": "all",
+  "tag": "4a",
+  "seq": 2000,
+  "patch_len": 128,
+  "patch_stride": 64,
+  "align": "end",
+  "horizon": 500,
+  "step": 30,
+  "test_step": 10,
+  "lam_psd": 0.0,
+  "lam_std": 0.0,
+  "psd_bins": "octave",
+  "legacy_statloss": false,
+  "demean": false,
+  "seed": 44,
+  "max_epochs": 600,
+  "patience": 45,
+  "lr_patience": 15,
+  "batch": 128,
+  "exclude_ratios": null,
+  "smoke": false,
+  "force": false,
+  "n_series_train": 340,
+  "n_series_test": 340,
+  "n_windows": {
+    "train": 231880,
+    "val": 50320,
+    "test": 150280
+  },
+  "mu": [
+    0.2386031299829483,
+    -0.6281944513320923,
+    -0.61062091588974,
+    -0.08539663255214691
+  ],
+  "sigma": [
+    0.4520735740661621,
+    0.16865840554237366,
+    0.2314309924840927,
+    0.6369143128395081
+  ],
+  "model": {
+    "d_model": 128,
+    "n_heads": 4,
+    "d_ff": 256,
+    "n_layers": 3,
+    "dropout": 0.1
+  },
+  "optim": {
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "clip_grad_norm": 1.0,
+    "seed": 42,
+    "lr_schedule": "ReduceLROnPlateau(factor=0.5, patience=15)"
+  },
+  "checkpoint": "patchtst\\checkpoints\\gpu_plan_2026-10\\4a_s2000_p128-64_mse_seed44_r3.pt",
+  "git": "ff63cb0-dirty",
+  "torch": "2.7.1+cu118",
+  "device": "NVIDIA RTX A4000",
+  "started": "2026-10-22T14:47:59"
+}

@@ -135,13 +135,32 @@ Protocolo B: Fase 1 en 31 min (19.1 + 4.4 + 8.0); Fase 2 en 48 min (8–11.5 min
 3. **Si se quiere variabilidad realista:** un modelo probabilístico (entrada de ruido +
    entrenamiento con energy score o CRPS) en lugar de la StatLoss.
 
-## 6. Reproducir
+## 6. Experimento 6: media por serie (añadido el 2026-10-22 por la tarde)
+
+Idea del usuario: quitar a cada serie su media antes de entrenar. Implementado como `--demean`:
+a cada serie se le resta la media de **su parte de train** (causal), en train, val y test, en
+memoria, y se suma de vuelta antes de medir el error. El dataset no cambia (huella SHA-256
+idéntica antes y después). Se corrieron 3 semillas de 4a y de 6a en R3, más 6b
+(leave-buildings-out).
+
+| Test R3 (3 semillas) | h=1 | h=10 | h=500 | RMSE medio |
+|---|---|---|---|---|
+| 4a | 0.0425 ± 0.0011 | 0.0626 ± 0.0009 | 0.1665 ± 0.0001 | 0.1576 ± 0.0002 |
+| **6a (media por serie)** | **0.0330 ± 0.0014** | **0.0574 ± 0.0011** | **0.1632 ± 0.0000** | **0.1546 ± 0.0001** |
+
+En las 64 series no vistas, 6b da 0.1558 a h=500, frente a 0.1597 de 5a y 0.1560 de 6a, que sí
+las vio. **Es el mejor modelo hasta ahora:** RMSE@500 0.1632 en R3, un 6.8% mejor que el
+publicado (0.1752). Límite: necesita conocer la media de esa serie o configuración por una
+medición previa. Detalle en `Agent_Test/results/gpu_plan_2026-10/README.md`.
+
+## 7. Reproducir
 
 ```powershell
 cd Agent_Test
 $env:KMP_DUPLICATE_LIB_OK = "TRUE"
 python stationarity_blocks.py                      # Fase 0 (CPU, minutos)
 .\run_gpu_plan.ps1 -Python <python del entorno con CUDA>   # protocolo B completo, ~3.2 h
+.\run_gpu_demean.ps1 -Python <python del entorno con CUDA> # experimento 6 + semillas, ~3.8 h
 python analyze_gpu_plan.py                         # tabla + figuras en results/gpu_plan_2026-10/analisis/
 python plot_forecast.py                            # serie real frente a pronóstico (run 4a)
 ```

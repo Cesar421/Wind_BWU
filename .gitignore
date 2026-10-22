@@ -28,7 +28,7 @@ checkpoints-*/
 Agent_Test/results/gpu_plan_2026-10/**/big/
 Agent_Test/results/gpu_plan_2026-10/_smoke/
 !Agent_Test/results/gpu_plan_2026-10/**/train.log
-!Agent_Test/results/gpu_plan_2026-10/**/run_gpu_plan.log
+!Agent_Test/results/gpu_plan_2026-10/**/run_gpu_*.log
 
 # Agent_Papers: derived PDF text dumps (re-extractable, copyright-safe)
 Agent_Papers/_extracted/

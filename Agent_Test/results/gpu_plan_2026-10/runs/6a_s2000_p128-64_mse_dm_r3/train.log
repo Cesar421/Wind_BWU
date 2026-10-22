@@ -1,0 +1,42 @@
+
+======================================================================
+  PatchTST v2  6a_s2000_p128-64_mse_dm_r3
+======================================================================
+Device: cuda  (NVIDIA RTX A4000)  | GPU memory cap 85%  | CPU threads 24
+  Loaded 340 building-angle series (178 MB normalised)
+  Windows  train: 231880 (step 30)  val: 50320 (step 30)  test: 150280 (step 10)
+  mu_w=-0.0000  sigma_w=0.1627  | per-series train means removed (windward: -0.903 .. 0.818)
+
+Parameters: 2,387,700  | tokens: 30  | uncovered samples: 16 at the oldest end of the window
+Loss: MSE
+Schedule: max 600 epochs, early-stopping patience 45, LR patience 15  (1812 steps/epoch)
+  Epoch   1 | train=0.967423 | val=0.955167 | lr=1.00e-03
+  Epoch  10 | train=0.929135 | val=0.939712 | lr=1.00e-03
+  Epoch  20 | train=0.928031 | val=0.939723 | lr=1.00e-03
+  Epoch  30 | train=0.925650 | val=0.938694 | lr=5.00e-04
+  Epoch  40 | train=0.925660 | val=0.937903 | lr=5.00e-04
+  Epoch  50 | train=0.924326 | val=0.938596 | lr=2.50e-04
+  Epoch  60 | train=0.923602 | val=0.936884 | lr=2.50e-04
+  Epoch  70 | train=0.922487 | val=0.936078 | lr=1.25e-04
+  Epoch  80 | train=0.922024 | val=0.936883 | lr=1.25e-04
+  Epoch  90 | train=0.921636 | val=0.936803 | lr=6.25e-05
+  Epoch 100 | train=0.921353 | val=0.936693 | lr=6.25e-05
+  Epoch 110 | train=0.920866 | val=0.936838 | lr=3.13e-05
+  Early stopping at epoch 115
+
+Training time: 1451.5 s (24.2 min), 115 epochs, 12.62 s/epoch | best epoch 70: val loss 0.936078, val MSE 0.936078
+Evaluation: 3.7 s | peak GPU memory 334 MB | peak RAM 2.4 GB
+
+-- 6a_s2000_p128-64_mse_dm_r3 vs naive (same windows) --
+           val RMSE   naive   test RMSE   naive  test R2
+  h=  1     0.0334  0.0323      0.0328  0.0322   0.9947
+  h= 10     0.0590  0.0657      0.0587  0.0656   0.9830
+  h= 50     0.1378  0.1592      0.1368  0.1584   0.9077
+  h=100     0.1582  0.1995      0.1570  0.1981   0.8785
+  h=500     0.1642  0.2306      0.1632  0.2309   0.8684
+  test power ratio  total 0.018 | 2-10 Hz 0.021 | 10-50 Hz 0.001 | 50-500 Hz 0.001
+  test window std   pred 0.0325  true 0.1313  (ratio 0.247)
+  test RMSE over h=1..500: mean 0.1548 (naive 0.2092), max 0.1635 at h=294
+  shared-shape check: template share 0.000 (truth 0.000) | PC1 share 0.986 (truth 0.271)
+
+Run folder: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\gpu_plan_2026-10\runs\6a_s2000_p128-64_mse_dm_r3
