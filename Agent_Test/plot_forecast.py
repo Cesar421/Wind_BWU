@@ -52,6 +52,22 @@ def main():
     meta = pd.read_csv(run / "series_meta.csv")
     seq = int(args.run.split("_s")[1].split("_")[0])            # look-back in samples
     tag = args.run.split("_")[0]
+    # multi-quantile runs (--quantiles): uncertainty bands around the median
+    qband = (np.load(run / "big" / "quantiles.npy", mmap_mode="r")
+             if (run / "big" / "quantiles.npy").exists() else None)
+    qlev = np.load(run / "quantile_curves.npz")["quantiles"] if qband is not None else None
+
+    def draw_bands(ax, t, k, first):
+        """Shade the central intervals of window k; returns the share of y inside the widest."""
+        if qband is None:
+            return None
+        q = np.asarray(qband[k], dtype=np.float32)
+        Q = len(q)
+        for j in range(Q // 2):
+            ax.fill_between(t, q[j], q[Q - 1 - j], color="tab:orange", lw=0,
+                            alpha=0.15 + 0.15 * j,
+                            label=f"{qlev[Q - 1 - j] - qlev[j]:.0%} band" if first else None)
+        return q[0], q[-1]
 
     cmp_preds, cmp_at, cmp_tag, suffix = None, {}, None, ""
     if args.compare:
@@ -88,9 +104,13 @@ def main():
         t = np.arange(lo, len(y)) / FS
         ax.axvspan(lo / FS, t_test / FS, color="0.92", lw=0, label="before the test segment")
         ax.plot(t, y[lo:], color="0.2", lw=0.7, label="real Cp")
-        err, cerr = [], []
+        err, cerr, inside = [], [], []
         for j, k in enumerate(chain):
             tk = np.arange(t0s[k], t0s[k] + H) / FS
+            band = draw_bands(ax, tk, k, j == 0)
+            if band is not None:
+                yk = y[t0s[k]: t0s[k] + H]
+                inside.append((yk >= band[0]) & (yk <= band[1]))
             cf = cmp_forecast(k) if args.compare else None
             if cf is not None:
                 ax.plot(tk, cf, color="tab:blue", lw=1.4,
@@ -106,6 +126,8 @@ def main():
         if cerr:
             score = (f"RMSE {tag} {rmse:.3f} vs {cmp_tag} "
                      f"{float(np.sqrt(np.mean(np.concatenate(cerr) ** 2))):.3f}")
+        if inside:
+            score += f", real signal inside the widest band {np.concatenate(inside).mean():.0%}"
         ax.set_title(f"{s}   —   {len(chain)} forecasts, each made from the previous "
                      f"{seq / FS:g} s of real signal   ({score})", fontsize=10)
         ax.set_ylabel("Cp windward")
@@ -130,6 +152,7 @@ def main():
         ax.plot(t, y[t0 - seq: t0 + H], color="0.2", lw=0.7, label="real Cp")
         ax.hlines(y[t0 - 1], 0, (H - 1) / FS, color="0.5", ls="--", lw=1,
                   label="naive (last value)")
+        draw_bands(ax, np.arange(H) / FS, k, True)
         cf = cmp_forecast(k) if args.compare else None
         if cf is not None:
             ax.plot(np.arange(H) / FS, cf, color="tab:blue", lw=1.4, label=f"{cmp_tag} forecast")

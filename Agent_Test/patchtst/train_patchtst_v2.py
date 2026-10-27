@@ -86,6 +86,7 @@ from data_loader import load_all_buildings_ctx
 from train_utils import (set_seed, DEVICE, train_model, WindowLoader,
                          ROUND2_ALPHAS, ROUND2_RATIOS)
 from stat_loss import StatLoss
+from quantile_loss import PinballLoss
 from models.patchtst import PatchTST
 import matplotlib.pyplot as plt                 # Agg backend set by train_utils
 
@@ -149,6 +150,9 @@ def parse_args():
                    help="remove from each series its own train-portion mean (in memory; "
                         "added back before scoring)")
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--quantiles", type=float, nargs="+", default=None,
+                   help="multi-quantile forecast trained with the pinball loss, e.g. "
+                        "0.05 0.25 0.5 0.75 0.95 (median = point forecast)")
     p.add_argument("--max-epochs", type=int, default=None, help="default 200 x step/10")
     p.add_argument("--patience", type=int, default=None,
                    help="early stopping, default 15 x step/10")
@@ -174,7 +178,9 @@ def run_name(a) -> str:
     parts = [a.tag, f"s{a.seq}", f"p{a.patch_len}-{a.patch_stride}"]
     if a.align == "start":
         parts.append("legacypatch")
-    if a.lam_psd == 0 and a.lam_std == 0:
+    if a.quantiles:
+        parts.append(f"qr{len(a.quantiles)}")
+    elif a.lam_psd == 0 and a.lam_std == 0:
         parts.append("mse")
     else:
         parts.append(f"lpsd{a.lam_psd:g}_lstd{a.lam_std:g}")
@@ -240,6 +246,59 @@ def git_version() -> str:
 def to_json(path: Path, obj: dict):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, default=lambda o: o.item() if hasattr(o, "item") else str(o))
+
+
+class MedianView(torch.nn.Module):
+    """Point (median) forecast of a multi-quantile model, for the point scores."""
+
+    def __init__(self, model, qloss):
+        super().__init__()
+        self.model, self.qloss = model, qloss
+
+    def forward(self, x):
+        return self.qloss.point(self.model(x))
+
+
+@torch.no_grad()
+def evaluate_quantiles(model, loader, qloss, mu_w, sigma_w, H, offset=None, keep=False) -> dict:
+    """
+    Interval scores of a multi-quantile model, in Cp: for every central interval
+    (outermost quantile pair first) the share of true values inside it and its
+    width per horizon, plus the pinball loss of each quantile per horizon.
+    keep=True also returns the sorted quantile forecasts (N, Q, H) as float16.
+    """
+    model.eval()
+    qs_list = qloss.quantiles
+    Q = len(qs_list)
+    pairs = [(i, Q - 1 - i) for i in range(Q // 2)]
+    qv = torch.tensor(qs_list, dtype=torch.float64, device=DEVICE)[None, :, None]
+    off = (torch.as_tensor(offset, dtype=torch.float64, device=DEVICE)[:, None]
+           if offset is not None else None)
+    cover = torch.zeros(len(pairs), H, dtype=torch.float64, device=DEVICE)
+    width = torch.zeros_like(cover)
+    pin = torch.zeros(Q, H, dtype=torch.float64, device=DEVICE)
+    n, kept = 0, []
+    for xb, yb in loader:
+        q = qloss.split(model(xb)).double() * sigma_w + mu_w            # (B, Q, H)
+        y = yb.double() * sigma_w + mu_w
+        if off is not None:
+            q = q + off[n: n + len(yb), None]
+            y = y + off[n: n + len(yb)]
+        for j, (lo, hi) in enumerate(pairs):
+            cover[j] += ((y >= q[:, lo]) & (y <= q[:, hi])).sum(0)
+            width[j] += (q[:, hi] - q[:, lo]).sum(0)
+        e = y[:, None, :] - q
+        pin += torch.maximum(qv * e, (qv - 1) * e).sum(0)
+        n += len(yb)
+        if keep:
+            kept.append(q.half().cpu())
+    out = {"quantiles": qs_list,
+           "levels": [round(qs_list[hi] - qs_list[lo], 4) for lo, hi in pairs],
+           "coverage": (cover / n).cpu().numpy(), "width": (width / n).cpu().numpy(),
+           "pinball": (pin / n).cpu().numpy()}
+    if keep:
+        out["q"] = torch.cat(kept).numpy()
+    return out
 
 
 class LastValue(torch.nn.Module):
@@ -537,7 +596,8 @@ def main():
         naive_sum = json.load(f)
 
     # ── Model + loss ──
-    model = PatchTST(n_features=4, seq_len=args.seq, horizon=H,
+    n_q = len(args.quantiles) if args.quantiles else 1
+    model = PatchTST(n_features=4, seq_len=args.seq, horizon=H * n_q,
                      patch_len=args.patch_len, stride=args.patch_stride,
                      d_model=D_MODEL, n_heads=N_HEADS, d_ff=D_FF,
                      n_layers=N_LAYERS, dropout=DROPOUT,
@@ -548,10 +608,15 @@ def main():
           f"uncovered samples: {gap} at the "
           f"{'oldest' if args.align == 'end' else 'MOST RECENT'} end of the window")
     use_stat = args.lam_psd > 0 or args.lam_std > 0
+    if args.quantiles and use_stat:
+        raise SystemExit("--quantiles cannot be combined with --lam-psd / --lam-std")
     loss_fn = (StatLoss(H, args.lam_psd, args.lam_std, bins=args.psd_bins,
                         detemplate=not args.legacy_statloss).to(DEVICE)
                if use_stat else None)
-    print(f"Loss: {'StatLoss' if use_stat else 'MSE'}"
+    if args.quantiles:
+        loss_fn = PinballLoss(args.quantiles, H).to(DEVICE)
+        print(f"Quantiles: {loss_fn.quantiles} (median = point forecast)")
+    print(f"Loss: {'StatLoss' if use_stat else 'pinball' if args.quantiles else 'MSE'}"
           + (f"  lam_psd={args.lam_psd:g} ({args.psd_bins})  lam_std={args.lam_std:g}  "
              + ("LEGACY: templates allowed" if args.legacy_statloss
                 else "template-free statistics")
@@ -578,8 +643,13 @@ def main():
 
     # ── Evaluate the best checkpoint on val and test ──
     t_ev = time.time()
-    ev_val = evaluate(model, val_eval, mu_w, sigma_w, H, offset=val_off)
-    ev_test = evaluate(model, test_loader, mu_w, sigma_w, H, keep=True, offset=test_off)
+    point_model = MedianView(model, loss_fn) if args.quantiles else model
+    ev_val = evaluate(point_model, val_eval, mu_w, sigma_w, H, offset=val_off)
+    ev_test = evaluate(point_model, test_loader, mu_w, sigma_w, H, keep=True, offset=test_off)
+    if args.quantiles:
+        qv_val = evaluate_quantiles(model, val_eval, loss_fn, mu_w, sigma_w, H, offset=val_off)
+        qv_test = evaluate_quantiles(model, test_loader, loss_fn, mu_w, sigma_w, H,
+                                     offset=test_off, keep=True)
     mem = psutil.Process().memory_info()
     peak_ram = getattr(mem, "peak_wset", mem.rss) / 1e9
     print(f"Evaluation: {time.time() - t_ev:.1f} s | peak GPU memory {peak_gpu:.0f} MB "
@@ -603,13 +673,28 @@ def main():
         "peak_gpu_mem_mb": round(peak_gpu), "peak_ram_gb": round(peak_ram, 2),
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
+    if args.quantiles:
+        info["quantiles"] = " ".join(f"{q:g}" for q in loss_fn.quantiles)
+        for split, qe in (("val", qv_val), ("test", qv_test)):
+            info[f"{split}_pinball_mean"] = float(qe["pinball"].mean())
+            for lvl, c, w in zip(qe["levels"], qe["coverage"], qe["width"]):
+                k = f"{round(lvl * 100)}"
+                info[f"{split}_coverage{k}_mean"] = float(c.mean())
+                info[f"{split}_width{k}_mean"] = float(w.mean())
+                info[f"{split}_coverage{k}_h500"] = float(c[H - 1])
+        np.savez(run_dir / "quantile_curves.npz", quantiles=np.array(loss_fn.quantiles),
+                 levels=np.array(qv_test["levels"]),
+                 **{f"{s}_{k}": qe[k] for s, qe in (("val", qv_val), ("test", qv_test))
+                    for k in ("coverage", "width", "pinball")})
+        np.save(run_dir / "big" / "quantiles.npy", qv_test["q"])
 
     # ── Outputs ──
     pd.DataFrame({"epoch": np.arange(1, len(tl) + 1),
                   **{k: history[k] for k in ("train_loss", "val_loss", "val_mse", "lr",
                                              "epoch_time_s")}}) \
         .to_csv(run_dir / "history.csv", index=False)
-    plot_history(run_dir / "training_curves.png", name, history, show_mse=use_stat)
+    plot_history(run_dir / "training_curves.png", name, history,
+                 show_mse=use_stat or bool(args.quantiles))
     plot_examples(run_dir / "forecast_examples.png", name, test_data["series"],
                   test_data["test_idx"], test_data["series_meta"], ev_test["preds"],
                   mu_w, sigma_w, args.seq, H,
@@ -638,6 +723,12 @@ def main():
     print(f"  shared-shape check: template share {ev_test['tpl_share']:.3f} "
           f"(truth {ev_test['tpl_share_true']:.3f}) | PC1 share {ev_test['pc1_share']:.3f} "
           f"(truth {ev_test['pc1_share_true']:.3f})")
+    if args.quantiles:
+        print(f"  test bands (share of true values inside / mean width, Cp):")
+        for lvl, c, w in zip(qv_test["levels"], qv_test["coverage"], qv_test["width"]):
+            print(f"    {lvl:.0%} band: inside {c.mean():.3f} (h=1 {c[0]:.3f}, h=500 {c[H - 1]:.3f})"
+                  f" | width {w.mean():.3f} (h=1 {w[0]:.3f}, h=500 {w[H - 1]:.3f})")
+        print(f"  test mean pinball loss {qv_test['pinball'].mean():.4f}")
     print(f"\nRun folder: {run_dir}")
 
 

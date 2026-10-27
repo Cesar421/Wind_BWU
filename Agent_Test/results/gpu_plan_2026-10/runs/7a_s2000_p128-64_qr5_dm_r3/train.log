@@ -1,0 +1,61 @@
+
+======================================================================
+  PatchTST v2  7a_s2000_p128-64_qr5_dm_r3
+======================================================================
+Device: cuda  (NVIDIA RTX A4000)  | GPU memory cap 85%  | CPU threads 24
+  Loaded 340 building-angle series (178 MB normalised)
+  Windows  train: 231880 (step 30)  val: 50320 (step 30)  test: 150280 (step 10)
+  mu_w=-0.0000  sigma_w=0.1627  | per-series train means removed (windward: -0.903 .. 0.818)
+
+Parameters: 10,069,700  | tokens: 30  | uncovered samples: 16 at the oldest end of the window
+Quantiles: [0.05, 0.25, 0.5, 0.75, 0.95] (median = point forecast)
+Loss: pinball
+Schedule: max 600 epochs, early-stopping patience 45, LR patience 15  (1812 steps/epoch)
+  Epoch   1 | train=0.235650 | val=0.233456 | val_mse=0.955722 | lr=1.00e-03
+  Epoch  10 | train=0.230467 | val=0.230989 | val_mse=0.951245 | lr=1.00e-03
+  Epoch  20 | train=0.229900 | val=0.230471 | val_mse=0.945466 | lr=1.00e-03
+  Epoch  30 | train=0.229858 | val=0.230568 | val_mse=0.947364 | lr=1.00e-03
+  Epoch  40 | train=0.229822 | val=0.230713 | val_mse=0.945349 | lr=1.00e-03
+  Epoch  50 | train=0.229761 | val=0.230123 | val_mse=0.950958 | lr=1.00e-03
+  Epoch  60 | train=0.229029 | val=0.230176 | val_mse=0.949801 | lr=5.00e-04
+  Epoch  70 | train=0.228887 | val=0.229595 | val_mse=0.944308 | lr=5.00e-04
+  Epoch  80 | train=0.228365 | val=0.229298 | val_mse=0.943877 | lr=2.50e-04
+  Epoch  90 | train=0.228302 | val=0.229501 | val_mse=0.943742 | lr=2.50e-04
+  Epoch 100 | train=0.228223 | val=0.229203 | val_mse=0.942349 | lr=2.50e-04
+  Epoch 110 | train=0.227860 | val=0.228875 | val_mse=0.943827 | lr=1.25e-04
+  Epoch 120 | train=0.227857 | val=0.228879 | val_mse=0.944633 | lr=1.25e-04
+  Epoch 130 | train=0.227580 | val=0.228848 | val_mse=0.939669 | lr=6.25e-05
+  Epoch 140 | train=0.227562 | val=0.228743 | val_mse=0.939319 | lr=6.25e-05
+  Epoch 150 | train=0.227360 | val=0.228679 | val_mse=0.940665 | lr=3.13e-05
+  Epoch 160 | train=0.227355 | val=0.228633 | val_mse=0.939304 | lr=3.13e-05
+  Epoch 170 | train=0.227247 | val=0.228541 | val_mse=0.941388 | lr=1.56e-05
+  Epoch 180 | train=0.227251 | val=0.228536 | val_mse=0.940853 | lr=1.56e-05
+  Epoch 190 | train=0.227236 | val=0.228537 | val_mse=0.941208 | lr=1.56e-05
+  Epoch 200 | train=0.227163 | val=0.228593 | val_mse=0.940776 | lr=7.81e-06
+  Epoch 210 | train=0.227187 | val=0.228522 | val_mse=0.941283 | lr=7.81e-06
+  Epoch 220 | train=0.227137 | val=0.228534 | val_mse=0.940470 | lr=3.91e-06
+  Epoch 230 | train=0.227122 | val=0.228534 | val_mse=0.940058 | lr=3.91e-06
+  Epoch 240 | train=0.227100 | val=0.228528 | val_mse=0.940035 | lr=1.95e-06
+  Epoch 250 | train=0.227114 | val=0.228509 | val_mse=0.940199 | lr=1.95e-06
+  Early stopping at epoch 258
+
+Training time: 4467.2 s (74.5 min), 258 epochs, 17.31 s/epoch | best epoch 213: val loss 0.228464, val MSE 0.939755
+Evaluation: 7.5 s | peak GPU memory 453 MB | peak RAM 3.5 GB
+
+-- 7a_s2000_p128-64_qr5_dm_r3 vs naive (same windows) --
+           val RMSE   naive   test RMSE   naive  test R2
+  h=  1     0.0409  0.0323      0.0387  0.0322   0.9926
+  h= 10     0.0591  0.0657      0.0576  0.0656   0.9836
+  h= 50     0.1373  0.1592      0.1360  0.1584   0.9087
+  h=100     0.1585  0.1995      0.1572  0.1981   0.8782
+  h=500     0.1648  0.2306      0.1638  0.2309   0.8675
+  test power ratio  total 0.016 | 2-10 Hz 0.019 | 10-50 Hz 0.001 | 50-500 Hz 0.002
+  test window std   pred 0.0310  true 0.1313  (ratio 0.236)
+  test RMSE over h=1..500: mean 0.1549 (naive 0.2092), max 0.1641 at h=269
+  shared-shape check: template share 0.003 (truth 0.000) | PC1 share 0.987 (truth 0.271)
+  test bands (share of true values inside / mean width, Cp):
+    90% band: inside 0.908 (h=1 0.963, h=500 0.908) | width 0.501 (h=1 0.148, h=500 0.532)
+    50% band: inside 0.508 (h=1 0.604, h=500 0.509) | width 0.203 (h=1 0.051, h=500 0.218)
+  test mean pinball loss 0.0371
+
+Run folder: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\gpu_plan_2026-10\runs\7a_s2000_p128-64_qr5_dm_r3

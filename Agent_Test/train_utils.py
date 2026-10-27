@@ -206,7 +206,9 @@ def train_model(
                 out = model(xb)
                 v_batch.append(criterion(out, yb).item())
                 if history is not None:
-                    v_mse.append(nn.functional.mse_loss(out, yb).item())
+                    # multi-output losses (quantiles) expose their point forecast
+                    pt = criterion.point(out) if hasattr(criterion, "point") else out
+                    v_mse.append(nn.functional.mse_loss(pt, yb).item())
         v_loss = float(np.mean(v_batch))
 
         if history is not None:

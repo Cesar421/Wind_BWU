@@ -1,0 +1,70 @@
+{
+  "run": "7a_s2000_p128-64_qr5_dm_r3",
+  "scope": "all",
+  "tag": "7a",
+  "seq": 2000,
+  "patch_len": 128,
+  "patch_stride": 64,
+  "align": "end",
+  "horizon": 500,
+  "step": 30,
+  "test_step": 10,
+  "lam_psd": 0.0,
+  "lam_std": 0.0,
+  "psd_bins": "octave",
+  "legacy_statloss": false,
+  "demean": true,
+  "seed": 42,
+  "quantiles": [
+    0.05,
+    0.25,
+    0.5,
+    0.75,
+    0.95
+  ],
+  "max_epochs": 600,
+  "patience": 45,
+  "lr_patience": 15,
+  "batch": 128,
+  "exclude_ratios": null,
+  "smoke": false,
+  "force": false,
+  "n_series_train": 340,
+  "n_series_test": 340,
+  "n_windows": {
+    "train": 231880,
+    "val": 50320,
+    "test": 150280
+  },
+  "mu": [
+    -8.195046724557287e-11,
+    1.276264649519021e-09,
+    -1.0045402287772731e-09,
+    6.654779505232966e-10
+  ],
+  "sigma": [
+    0.16269896924495697,
+    0.11721598356962204,
+    0.14410194754600525,
+    0.2113720029592514
+  ],
+  "model": {
+    "d_model": 128,
+    "n_heads": 4,
+    "d_ff": 256,
+    "n_layers": 3,
+    "dropout": 0.1
+  },
+  "optim": {
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "clip_grad_norm": 1.0,
+    "seed": 42,
+    "lr_schedule": "ReduceLROnPlateau(factor=0.5, patience=15)"
+  },
+  "checkpoint": "patchtst\\checkpoints\\gpu_plan_2026-10\\7a_s2000_p128-64_qr5_dm_r3.pt",
+  "git": "6b06eba-dirty",
+  "torch": "2.7.1+cu118",
+  "device": "NVIDIA RTX A4000",
+  "started": "2026-10-23T17:15:25"
+}
