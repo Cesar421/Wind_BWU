@@ -1,0 +1,46 @@
+
+======================================================================
+  PatchTST v2  2e_s2000_p128-64_lpsd0.003_lstd1_lin_r2
+======================================================================
+Device: cuda  (NVIDIA RTX A4000)  | GPU memory cap 85%  | CPU threads 24
+  Loaded 85 building-angle series (45 MB normalised)
+  Windows  train: 57970 (step 30)  val: 12580 (step 30)  test: 37570 (step 10)
+  mu_w=0.2409  sigma_w=0.4442
+
+Parameters: 2,387,700  | tokens: 30  | uncovered samples: 16 at the oldest end of the window
+Loss: StatLoss  lam_psd=0.003 (linear)  lam_std=1  template-free statistics
+Schedule: max 600 epochs, early-stopping patience 45, LR patience 15  (453 steps/epoch)
+  Epoch   1 | train=0.243479 | val=0.196169 | val_mse=0.161420 | lr=1.00e-03
+  Epoch  10 | train=0.183203 | val=0.184231 | val_mse=0.150885 | lr=1.00e-03
+  Epoch  20 | train=0.179572 | val=0.181165 | val_mse=0.149819 | lr=1.00e-03
+  Epoch  30 | train=0.177902 | val=0.180638 | val_mse=0.151670 | lr=1.00e-03
+  Epoch  40 | train=0.177516 | val=0.177675 | val_mse=0.149794 | lr=1.00e-03
+  Epoch  50 | train=0.177106 | val=0.178683 | val_mse=0.149380 | lr=1.00e-03
+  Epoch  60 | train=0.174474 | val=0.178191 | val_mse=0.150314 | lr=5.00e-04
+  Epoch  70 | train=0.174236 | val=0.178457 | val_mse=0.149658 | lr=5.00e-04
+  Epoch  80 | train=0.173879 | val=0.178774 | val_mse=0.151489 | lr=2.50e-04
+  Epoch  90 | train=0.172164 | val=0.178147 | val_mse=0.150570 | lr=2.50e-04
+  Epoch 100 | train=0.171987 | val=0.176794 | val_mse=0.147636 | lr=2.50e-04
+  Epoch 110 | train=0.170339 | val=0.176391 | val_mse=0.147776 | lr=1.25e-04
+  Epoch 120 | train=0.170488 | val=0.177664 | val_mse=0.150346 | lr=1.25e-04
+  Epoch 130 | train=0.169419 | val=0.176608 | val_mse=0.149651 | lr=6.25e-05
+  Epoch 140 | train=0.169095 | val=0.176885 | val_mse=0.149484 | lr=3.13e-05
+  Epoch 150 | train=0.168914 | val=0.176816 | val_mse=0.149663 | lr=3.13e-05
+  Early stopping at epoch 152
+
+Training time: 557.3 s (9.3 min), 152 epochs, 3.67 s/epoch | best epoch 107: val loss 0.175980, val MSE 0.148790
+Evaluation: 1.1 s | peak GPU memory 199 MB | peak RAM 1.4 GB
+
+-- 2e_s2000_p128-64_lpsd0.003_lstd1_lin_r2 vs naive (same windows) --
+           val RMSE   naive   test RMSE   naive  test R2
+  h=  1     0.1410  0.0316      0.1417  0.0314   0.8988
+  h= 10     0.1334  0.0643      0.1327  0.0644   0.9112
+  h= 50     0.1563  0.1610      0.1537  0.1590   0.8811
+  h=100     0.1673  0.2009      0.1665  0.2004   0.8605
+  h=500     0.1767  0.2323      0.1748  0.2355   0.8439
+  test power ratio  total 0.195 | 2-10 Hz 0.153 | 10-50 Hz 0.331 | 50-500 Hz 0.813
+  test window std   pred 0.0781  true 0.1343  (ratio 0.582)
+  test RMSE over h=1..500: mean 0.1695 (naive 0.2124), max 0.1982 at h=244
+  shared-shape check: template share 0.000 (truth 0.000) | PC1 share 0.747 (truth 0.279)
+
+Run folder: C:\Users\verwalter\Documents\GitHub\Wind_BWU\Agent_Test\results\gpu_plan_2026-10\runs\2e_s2000_p128-64_lpsd0.003_lstd1_lin_r2
