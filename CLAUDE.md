@@ -30,4 +30,11 @@ generalises to unseen geometries (leave-buildings-out ≈ same error). The stati
 mean (`--demean`, in memory) gives the best model so far: RMSE@500 0.1632 ± 0.0000
 over 3 seeds (needs the series' mean from a prior measurement). Earlier: PatchTST 0.175 and LSTM-direct
 0.179 beat naive; Random Forest / XGBoost tie naive over 680 trajectories.
+Climatology check (2026-11-17): predicting each series' train mean gives RMSE 0.163 at
+every h (naive = √2 × that at 500 ms). 4a is worse than it from h ≈ 137 ms, 6a from
+h ≈ 230–250 ms (0.1632 vs 0.1630 at h=500), so compare long horizons against
+climatology, not only naive. Advisor's Gaussian AR(1) error layer (`bias_gaussian_ar1.py`,
+on 4a, CPU, no retraining; `Agent_Test/results/gpu_plan_2026-10/bias_ar1/README.md`):
+same spectral power as 2f with 10% lower RMSE and 36% lower CRPS, calibrated bands.
+Not yet applied to 6a.
 Next: thesis text (see the results handoff, section 5).
