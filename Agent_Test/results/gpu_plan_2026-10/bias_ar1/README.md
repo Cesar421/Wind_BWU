@@ -73,6 +73,23 @@ Errores estandarizados de validación: asimetría entre +0.42 y +0.56, y curtosi
 donde el modelo no anticipa los saltos bruscos. Aun así, la normal da coberturas correctas en los
 intervalos centrales.
 
+## Galería por geometría
+
+`forecast_gallery_alpha1_4_0deg.png` y `forecast_gallery_alpha1_6_0deg.png` son la misma figura
+que `forecast_examples.png`, pero con un panel por edificio (filas: altura H; columnas: planta
+B:D) y una figura por rugosidad del terreno. Con α = 1/6 no hay edificios 2:1. Todos los paneles
+son a 0° y muestran la ventana de test con el error mediano de 4a en ese edificio. Las dos figuras
+comparten la escala vertical. 2f no aparece porque solo se entrenó en las 5 geometrías de R2.
+
+El error cambia con la geometría (RMSE mediano de 0.13 a 0.25), pero sigue la variabilidad de
+cada serie: la correlación con σ_s, la desviación típica de la parte de train, es 0.79. Los
+edificios bajos fluctúan más (σ_s medio 0.23 con H = 2 frente a 0.16 con H = 5). Relativo a σ_s,
+el error es casi el mismo en todas las geometrías: 0.93 con α = 1/4 y 0.92 con α = 1/6, sin
+tendencia con la altura (0.98, 0.90, 0.86 y 0.97 para H = 2, 3, 4 y 5). Que esté cerca de 1
+encaja con la comparación con la climatología: en promedio sobre 0–500 ms, el error de 4a ya es
+casi la desviación típica de la serie. Los números por edificio están en
+`forecast_gallery_0deg.csv`.
+
 ## Siguientes pasos posibles
 
 1. Un segundo término (otra exponencial o un ruido blanco) para el espectro por encima de 32 Hz.
@@ -87,6 +104,8 @@ intervalos centrales.
 | `psd_4a_bias_vs_2f.png` | Figura principal: espectro de 4a + bias, 2f y 4a frente a la verdad (R2) |
 | `diagnostics.png` | QQ de los errores, autocorrelación frente a ρ^k, cobertura y CRPS por horizonte (R3) |
 | `forecast_examples.png` | Dos ventanas de test con bandas, trayectorias, 2f y la media de 4a |
+| `forecast_gallery_alpha1_4_0deg.png`, `forecast_gallery_alpha1_6_0deg.png` | Lo mismo con un panel por edificio (B:D:H) a 0°, una figura por rugosidad |
+| `forecast_gallery_0deg.csv` | Ventana de cada panel, RMSE mediano de cada edificio y σ_s |
 | `comparison_test_r3.csv`, `comparison_test_r2_vs_2f.csv` | Las tablas de arriba |
 | `metrics_by_h_test_r3.csv` | μ(h), σ(h), correlación lag-1, RMSE, CRPS y cobertura por horizonte |
 | `rho_search.csv`, `summary.json` | Búsqueda de ρ y números clave |
@@ -97,8 +116,13 @@ intervalos centrales.
 ```powershell
 cd Agent_Test
 $env:KMP_DUPLICATE_LIB_OK = "TRUE"
-python bias_gaussian_ar1.py      # ~9 min de predicciones en CPU + ~1.5 min de análisis
+python bias_gaussian_ar1.py      # ~9 min de predicciones en CPU + unos minutos de análisis y figuras
+python bias_gaussian_ar1.py --stage gallery --angle 0 --pct 50   # solo la galería, ~40 s
 ```
+
+`--angle` cambia el ángulo de viento (0–50° en los edificios 1:1, 0–100° en los 2:1 y 3:1) y
+`--pct` el percentil de error de la ventana mostrada (90 = una ventana difícil). Cada combinación
+se guarda con su propio nombre.
 
 Comprobaciones que hace el script: las predicciones reproducen las curvas de RMSE de test
 guardadas de 4a y 2f (diferencia máxima 1.4e-8 y 4.0e-8), y los espectros de 2f coinciden con

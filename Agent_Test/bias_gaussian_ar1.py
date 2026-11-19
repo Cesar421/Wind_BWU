@@ -23,9 +23,11 @@ Fitted on validation only, scored on test (R3, 150 280 windows):
   - on the 85 R2 series (the same 37 570 windows run 2f was scored on): 4a + bias vs 2f.
 
 Stages (predictions are cached as float32 .npy in <out>/big/, gitignored):
-    python bias_gaussian_ar1.py                    # predict if not cached, then analyze
+    python bias_gaussian_ar1.py                    # predict if not cached, analyze, gallery
     python bias_gaussian_ar1.py --stage predict    # ~9 min on a 4-thread CPU
     python bias_gaussian_ar1.py --stage analyze    # a few minutes
+    python bias_gaussian_ar1.py --stage gallery [--angle 0] [--pct 50]
+        # one figure per terrain roughness, one panel per building (B:D:H), seconds
     python bias_gaussian_ar1.py --every 40 --out <tmp dir>   # quick end-to-end check
 Outputs: results/gpu_plan_2026-10/bias_ar1/
 """
@@ -42,6 +44,7 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.ticker import MaxNLocator  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
@@ -76,6 +79,9 @@ SEED_FIT, SEED_TEST, SEED_FIG = 0, 1, 2
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 C_BIAS, C_2F, C_MEAN = "#2a78d6", "#eb6834", "#1baf7a"
 SEQ_BLUES = ("#86b6ef", "#2a78d6", "#104281")          # ordinal ramp: h = 10, 100, 500
+RC = {"font.size": 9, "axes.titlesize": 10, "axes.titlecolor": INK, "axes.labelcolor": INK2,
+      "xtick.color": INK2, "ytick.color": INK2, "legend.frameon": False, "savefig.dpi": 150,
+      "savefig.bbox": "tight"}
 
 
 # ─────────────────────────────── predict ───────────────────────────────
@@ -420,10 +426,7 @@ def stage_analyze(out: Path, big: Path, every: int) -> None:
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
     # 6. Figures
-    plt.rcParams.update({"font.size": 9, "axes.titlesize": 10, "axes.titlecolor": INK,
-                         "axes.labelcolor": INK2, "xtick.color": INK2, "ytick.color": INK2,
-                         "legend.frameon": False, "savefig.dpi": 150,
-                         "savefig.bbox": "tight"})
+    plt.rcParams.update(RC)
     fig_psd(out / "psd_4a_bias_vs_2f.png", f, ev2, psd_2f, len(j))
     fig_diagnostics(out / "diagnostics.png", qq, normality, acf_end, rho, lag1[-1], ev3)
     fig_examples(out / "forecast_examples.png", j, ev2["window_rmse"], rows_r2, Pt, Yt, P2,
@@ -438,6 +441,64 @@ def stage_analyze(out: Path, big: Path, every: int) -> None:
           f"train-series exp(-1/tau) median {stats['rho_tau'].median():.4f}")
     print("normality (val):", {h: {k: round(v, 3) for k, v in d.items()} for h, d in normality.items()})
     print(f"done in {time.time() - t0:.0f} s -> {out}")
+
+
+def stage_gallery(out: Path, big: Path, angle: int, pct: float) -> None:
+    """One figure per terrain roughness (alpha) with one panel per building (B:D:H), all at
+    the same wind angle: the test window whose 4a error (RMSE over h = 1..500) is at the
+    `pct` percentile of that building's windows. Uses the layer fitted by stage_analyze.
+    The CSV lists the windows shown and, per building, the median window RMSE against the
+    std of the series' train part (sigma_s), to compare buildings on a common scale."""
+    if not (out / "summary.json").exists():
+        raise FileNotFoundError(f"run --stage analyze first (no {out / 'summary.json'})")
+    by_h = pd.read_csv(out / "metrics_by_h_test_r3.csv")
+    mu_h, sigma_h = by_h["mu_val"].to_numpy(), by_h["sigma_val"].to_numpy()
+    rho = json.loads((out / "summary.json").read_text(encoding="utf-8"))["rho_psd_constraint"]
+    Pt, Yt = (np.load(big / f"4a_test_{n}.npy", mmap_mode="r") for n in ("pred", "true"))
+    meta = pd.read_csv(big / "4a_test_meta.csv")
+    keys = meta["key"].to_numpy()
+    H, back = len(mu_h), 300
+    rng = np.random.default_rng(SEED_FIG)
+    panels, table = {}, []                               # "Alpha1_4/2_1_3" -> window data
+    print(f"Gallery: wind angle {angle} deg, {_ordinal(pct)} 4a error per building")
+    for geo in meta["key"].str.rsplit("/", n=1).str[0].unique():
+        rows = np.flatnonzero(keys == f"{geo}/{angle}")
+        if not len(rows):
+            continue
+        err = np.sqrt(((Pt[rows].astype(np.float64) - Yt[rows]) ** 2).mean(1))
+        k = np.argsort(err, kind="stable")[int(pct / 100 * (len(rows) - 1))]
+        i, ts = rows[k], int(meta.loc[rows[k], "target_start"])
+        w = _load_windward(f"{geo}/{angle}")
+        hist, truth = _cut_window(w, ts, back, H, Yt[i])
+        m = Pt[i].astype(np.float64) + mu_h
+        panels[geo] = (hist, truth, m, m + sigma_h * simulate_z(2, H, rho, rng))
+        sigma_s = float(w[:int(len(w) * TRAIN_R)].std())
+        table.append({"alpha": geo.split("/")[0], "ratio_BDH": geo.split("/")[1],
+                      "angle": angle, "target_start": ts, "window_rmse": err[k],
+                      "building_median_rmse": np.median(err), "sigma_s": sigma_s,
+                      "median_rmse_over_sigma_s": np.median(err) / sigma_s})
+        print(f"  {geo:16s} target_start {ts:6d}  window RMSE {err[k]:.4f}  building median "
+              f"{np.median(err):.4f}  sigma_s {sigma_s:.4f}")
+    if not panels:
+        raise ValueError(f"no test windows at wind angle {angle} deg")
+    suffix = "" if pct == 50 else f"_p{pct:g}"
+    table = pd.DataFrame(table)
+    table.to_csv(out / f"forecast_gallery_{angle}deg{suffix}.csv", index=False)
+    print(f"  corr(building median RMSE, sigma_s) = "
+          f"{np.corrcoef(table['building_median_rmse'], table['sigma_s'])[0, 1]:.2f}; "
+          f"median RMSE / sigma_s by alpha: "
+          f"{table.groupby('alpha')['median_rmse_over_sigma_s'].mean().round(3).to_dict()}")
+    lo = min(min(h.min(), t.min(), (m - 1.96 * sigma_h).min(), tr.min())
+             for h, t, m, tr in panels.values())
+    hi = max(max(h.max(), t.max(), (m + 1.96 * sigma_h).max(), tr.max())
+             for h, t, m, tr in panels.values())
+    pad = 0.03 * (hi - lo)
+    plt.rcParams.update(RC)
+    for alpha in sorted({g.split("/")[0] for g in panels}):
+        mine = {g.split("/")[1]: v for g, v in panels.items() if g.startswith(alpha + "/")}
+        path = out / f"forecast_gallery_{alpha.lower()}_{angle}deg{suffix}.png"
+        fig_gallery(path, alpha, mine, sigma_h, angle, pct, (lo - pad, hi + pad))
+        print(f"  -> {path.name}")
 
 
 # ─────────────────────────────── figures ───────────────────────────────
@@ -552,28 +613,12 @@ def fig_examples(path, j, window_rmse, rows_r2, Pt, Yt, P2, mu_h, sigma_h, rho):
     fig, axs = plt.subplots(len(picks), 1, figsize=(10, 6.6), sharex=True)
     for ax, (i, what) in zip(axs, picks):
         key, ts = j.loc[i, "key"], int(j.loc[i, "target_start"])
-        a, r, g = key.split("/")
-        w = load_faces(a, r, int(g))[:, 0].astype(np.float64)
-        truth = w[ts:ts + H]
-        if np.abs(truth - Yt[rows_r2[i]]).max() > 1e-4:
-            raise RuntimeError("example window does not match the cached targets")
+        hist, truth = _cut_window(_load_windward(key), ts, back, H, Yt[rows_r2[i]])
         m = Pt[rows_r2[i]].astype(np.float64) + mu_h
-        hh = np.arange(1, H + 1)
-        ax.fill_between(hh, m - 1.96 * sigma_h, m + 1.96 * sigma_h, color=C_BIAS, alpha=0.12,
-                        lw=0, label="4a + bias: 95 % band")
-        ax.fill_between(hh, m - 0.674 * sigma_h, m + 0.674 * sigma_h, color=C_BIAS, alpha=0.25,
-                        lw=0, label="4a + bias: 50 % band")
-        for n_traj, zz in enumerate(simulate_z(2, H, rho, rng)):
-            ax.plot(hh, m + sigma_h * zz, color=C_BIAS, lw=0.9,
-                    label="4a + bias: sampled trajectories" if n_traj == 0 else None)
-        ax.plot(np.arange(-back + 1, 1), w[ts - back:ts], color=INK, lw=1.0)
-        ax.plot(hh, truth, color=INK, lw=1.4, label="truth")
-        ax.plot(hh, P2[i], color=C_2F, lw=1.3, label="2f: PSD in the loss")
-        ax.plot(hh, m, color=C_MEAN, lw=1.8, label="4a mean forecast")
-        ax.axvline(0, color=INK2, ls=":", lw=1)
+        _draw_forecast(ax, hist, truth, m, sigma_h, m + sigma_h * simulate_z(2, H, rho, rng),
+                       other=P2[i])
         ax.set_title(f"{key.replace('/', '  ')}°  —  window with the {what}", loc="left")
         ax.set_ylabel("windward Cp")
-        _style(ax)
     handles, labels = axs[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=8,
                bbox_to_anchor=(0.5, 0.0))
@@ -583,14 +628,102 @@ def fig_examples(path, j, window_rmse, rows_r2, Pt, Yt, P2, mu_h, sigma_h, rho):
     plt.close(fig)
 
 
+def fig_gallery(path, alpha, panels, sigma_h, angle, pct, ylim):
+    """Rows: building height H, columns: plan B:D. `panels` maps "2_1_3" -> window data."""
+    plans = sorted({r.rsplit("_", 1)[0] for r in panels})
+    heights = sorted({int(r.rsplit("_", 1)[1]) for r in panels})
+    nr, nc = len(heights), len(plans)
+    fig, axs = plt.subplots(nr, nc, figsize=(4.3 * nc, 2.2 * nr + 1.0), sharex=True,
+                            sharey=True, squeeze=False)
+    first = None
+    for ri, height in enumerate(heights):
+        for ci, plan in enumerate(plans):
+            ax, r = axs[ri, ci], f"{plan}_{height}"
+            if r not in panels:
+                ax.set_axis_off()
+                ax.text(0.5, 0.5, "not measured", transform=ax.transAxes, ha="center",
+                        color=INK2)
+                continue
+            hist, truth, m, traj = panels[r]
+            _draw_forecast(ax, hist, truth, m, sigma_h, traj)
+            ax.set_title(f"B:D:H = {r.replace('_', ':')}", loc="left")
+            if first is None:
+                first = ax
+        axs[ri, 0].set_ylabel("windward Cp")
+    for ax in axs[-1]:
+        ax.set_xlabel("time from the forecast origin [ms]")
+    axs[0, 0].set_ylim(*ylim)
+    axs[0, 0].yaxis.set_major_locator(MaxNLocator(nbins=7, steps=[1, 2, 2.5, 5, 10]))
+    handles, labels = first.get_legend_handles_labels()
+    ncol = len(labels) if nc >= 3 else 3
+    fig.legend(handles, labels, loc="lower center", ncol=ncol, fontsize=8,
+               bbox_to_anchor=(0.5, 0.0))
+    fig.suptitle(f"Terrain roughness α = {_alpha_label(alpha)}, wind angle {angle}°: "
+                 f"4a + Gaussian AR(1) bias\nEach panel is one building, showing its test "
+                 f"window with the {_ordinal(pct)} 4a error", x=0.01, ha="left", color=INK,
+                 fontsize=10)
+    fig.tight_layout(rect=(0, 0.03 * -(-len(labels) // ncol), 1, 1))
+    fig.savefig(path)
+    plt.close(fig)
+
+
+def _draw_forecast(ax, hist, truth, m, sigma_h, traj, other=None):
+    """History, truth, 4a mean, the bias layer's 50/95 % bands and sampled trajectories, and
+    optionally the 2f forecast, for one window (time 0 = forecast origin, 1 sample = 1 ms)."""
+    hh = np.arange(1, len(m) + 1)
+    ax.fill_between(hh, m - 1.96 * sigma_h, m + 1.96 * sigma_h, color=C_BIAS, alpha=0.12,
+                    lw=0, label="4a + bias: 95 % band")
+    ax.fill_between(hh, m - 0.674 * sigma_h, m + 0.674 * sigma_h, color=C_BIAS, alpha=0.25,
+                    lw=0, label="4a + bias: 50 % band")
+    for n_traj, t in enumerate(traj):
+        ax.plot(hh, t, color=C_BIAS, lw=0.9,
+                label="4a + bias: sampled trajectories" if n_traj == 0 else None)
+    ax.plot(np.arange(-len(hist) + 1, 1), hist, color=INK, lw=1.0)
+    ax.plot(hh, truth, color=INK, lw=1.4, label="truth")
+    if other is not None:
+        ax.plot(hh, other, color=C_2F, lw=1.3, label="2f: PSD in the loss")
+    ax.plot(hh, m, color=C_MEAN, lw=1.8, label="4a mean forecast")
+    ax.axvline(0, color=INK2, ls=":", lw=1)
+    _style(ax)
+
+
+def _load_windward(key):
+    a, r, g = key.split("/")
+    return load_faces(a, r, int(g))[:, 0].astype(np.float64)
+
+
+def _cut_window(w, ts, back, H, cached):
+    """History (last `back` samples) and truth of one window, checked against the cache."""
+    truth = w[ts:ts + H]
+    if np.abs(truth - cached).max() > 1e-4:
+        raise RuntimeError(f"window at {ts} does not match the cached targets")
+    return w[ts - back:ts], truth
+
+
+def _alpha_label(alpha):
+    return alpha.replace("Alpha", "").replace("_", "/")          # "Alpha1_4" -> "1/4"
+
+
+def _ordinal(pct):
+    if pct == 50:
+        return "median"
+    n = f"{pct:g}"
+    end = "th" if n.endswith(("11", "12", "13")) else {"1": "st", "2": "nd", "3": "rd"}.get(
+        n[-1], "th")
+    return f"{n}{end}-percentile"
+
+
 # ─────────────────────────────── main ───────────────────────────────
 
 def main():
     p = argparse.ArgumentParser(description="Gaussian AR(1) bias layer on PatchTST 4a")
-    p.add_argument("--stage", choices=["all", "predict", "analyze"], default="all")
+    p.add_argument("--stage", choices=["all", "predict", "analyze", "gallery"], default="all")
     p.add_argument("--every", type=int, default=1,
                    help="keep every k-th window per series (quick end-to-end check)")
     p.add_argument("--out", type=Path, default=OUT_DEFAULT)
+    p.add_argument("--angle", type=int, default=0, help="gallery: wind angle [deg]")
+    p.add_argument("--pct", type=float, default=50.0,
+                   help="gallery: percentile of the 4a window error shown (50 = median)")
     args = p.parse_args()
     big = args.out / "big"
     cached = (big / "predict_done.json").exists() and \
@@ -599,6 +732,8 @@ def main():
         stage_predict(big, args.every)
     if args.stage in ("all", "analyze"):
         stage_analyze(args.out, big, args.every)
+    if args.stage in ("all", "gallery"):
+        stage_gallery(args.out, big, args.angle, args.pct)
 
 
 if __name__ == "__main__":
